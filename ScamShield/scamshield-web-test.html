@@ -225,9 +225,10 @@
             color: #dc2626;
             padding: 20px;
             border-radius: 12px;
-            font-size: 18px;
+            font-size: 16px;
             margin-top: 20px;
             animation: slideIn 0.3s ease-out;
+            line-height: 1.5;
         }
 
         .examples {
@@ -327,7 +328,7 @@
 
     <script>
         const API_KEY = 'AIzaSyB_H4SBMggzumEpaDou-kgtGTggw3Yy0sg';
-        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
+        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
         const examples = [
             '🔥 穩賺不賠！保證月收益 30%！\n立即加入我的 LINE：@invest888\n前 100 名免費教學，錯過不再有！',
@@ -338,7 +339,6 @@
 
         function fillExample(index) {
             document.getElementById('messageInput').value = examples[index];
-            // 自動捲動到輸入框
             document.getElementById('messageInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
@@ -361,7 +361,8 @@
                 const result = await callGeminiAPI(message);
                 showResult(result);
             } catch (error) {
-                showError('分析失敗：' + error.message);
+                console.error('Error details:', error);
+                showError(error.message);
             } finally {
                 document.getElementById('loadingDiv').classList.add('hidden');
                 document.getElementById('analyzeBtn').disabled = false;
@@ -394,44 +395,74 @@
 ${message}
 """`;
 
-            const response = await fetch(`${API_URL}?key=${API_KEY}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: prompt
-                        }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.1,
-                        maxOutputTokens: 500
+            try {
+                const response = await fetch(`${API_URL}?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: prompt
+                            }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.1,
+                            maxOutputTokens: 500
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    console.error('API Error Response:', errorData);
+
+                    if (response.status === 400) {
+                        throw new Error('API 請求格式錯誤，請稍後再試');
+                    } else if (response.status === 403) {
+                        throw new Error('API 金鑰無效或已過期，請聯絡開發者');
+                    } else if (response.status === 429) {
+                        throw new Error('請求次數過多，請稍後再試');
+                    } else {
+                        throw new Error(`API 錯誤 (${response.status})，請稍後再試`);
                     }
-                })
-            });
+                }
 
-            if (!response.ok) {
-                throw new Error('API 呼叫失敗');
+                const data = await response.json();
+
+                if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                    throw new Error('API 回應格式錯誤，請稍後再試');
+                }
+
+                const text = data.candidates[0].content.parts[0].text;
+
+                // 移除可能的 markdown code block 標記
+                let jsonText = text.trim();
+                if (jsonText.startsWith('```json')) {
+                    jsonText = jsonText.substring(7);
+                } else if (jsonText.startsWith('```')) {
+                    jsonText = jsonText.substring(3);
+                }
+                if (jsonText.endsWith('```')) {
+                    jsonText = jsonText.substring(0, jsonText.length - 3);
+                }
+                jsonText = jsonText.trim();
+
+                try {
+                    return JSON.parse(jsonText);
+                } catch (parseError) {
+                    console.error('JSON Parse Error:', parseError);
+                    console.error('Response text:', jsonText);
+                    throw new Error('無法解析 AI 回應，請重試');
+                }
+
+            } catch (error) {
+                if (error.message.includes('fetch')) {
+                    throw new Error('網路連線失敗，請檢查您的網路連線');
+                }
+                throw error;
             }
-
-            const data = await response.json();
-            const text = data.candidates[0].content.parts[0].text;
-
-            // 移除可能的 markdown code block 標記
-            let jsonText = text.trim();
-            if (jsonText.startsWith('```json')) {
-                jsonText = jsonText.substring(7);
-            } else if (jsonText.startsWith('```')) {
-                jsonText = jsonText.substring(3);
-            }
-            if (jsonText.endsWith('```')) {
-                jsonText = jsonText.substring(0, jsonText.length - 3);
-            }
-            jsonText = jsonText.trim();
-
-            return JSON.parse(jsonText);
         }
 
         function showResult(result) {
