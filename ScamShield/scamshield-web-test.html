@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ScamShield 詐騙盾 - 測試版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .header .emoji {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px 20px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            resize: vertical;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button {
+            width: 100%;
+            padding: 18px;
+            font-size: 22px;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            min-height: 60px;
+        }
+
+        .button:active {
+            transform: scale(0.98);
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 12px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result.high {
+            background: #fee2e2;
+            border: 3px solid #dc2626;
+        }
+
+        .result.medium {
+            background: #fef3c7;
+            border: 3px solid #f59e0b;
+        }
+
+        .result.low {
+            background: #d1fae5;
+            border: 3px solid #10b981;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .result-emoji {
+            font-size: 48px;
+        }
+
+        .result-title {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .result.high .result-title {
+            color: #dc2626;
+        }
+
+        .result.medium .result-title {
+            color: #f59e0b;
+        }
+
+        .result.low .result-title {
+            color: #10b981;
+        }
+
+        .result-type {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .result-reason {
+            font-size: 20px;
+            line-height: 1.6;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .result-confidence {
+            margin-top: 15px;
+            font-size: 18px;
+            text-align: center;
+            opacity: 0.8;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 20px;
+            color: #666;
+        }
+
+        .error {
+            background: #fee2e2;
+            border: 2px solid #dc2626;
+            color: #dc2626;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 18px;
+            margin-top: 20px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .examples {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+
+        .examples h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .example-btn {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            font-size: 16px;
+            text-align: left;
+            background: #f3f4f6;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .example-btn:hover {
+            background: #e5e7eb;
+            border-color: #667eea;
+        }
+
+        .footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+            background: #f9fafb;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="emoji">🛡️</div>
+            <h1>ScamShield</h1>
+            <p>詐騙盾 - 測試版</p>
+        </div>
+
+        <div class="content">
+            <div class="input-group">
+                <label for="messageInput">貼上可疑訊息：</label>
+                <textarea
+                    id="messageInput"
+                    placeholder="在這裡貼上您收到的可疑訊息...&#10;&#10;例如：&#10;「恭喜您中獎了！請點擊連結領取 iPhone...」"
+                ></textarea>
+            </div>
+
+            <button class="button" id="analyzeBtn" onclick="analyzeMessage()">
+                🔍 立即檢測
+            </button>
+
+            <div id="loadingDiv" class="loading hidden">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">AI 分析中，請稍候...</div>
+            </div>
+
+            <div id="resultDiv" class="hidden"></div>
+            <div id="errorDiv" class="hidden"></div>
+
+            <div class="examples">
+                <h3>📝 測試範例（點擊可快速填入）</h3>
+                <button class="example-btn" onclick="fillExample(0)">
+                    💰 投資詐騙：「保證月收益 30%！加 LINE 免費教學」
+                </button>
+                <button class="example-btn" onclick="fillExample(1)">
+                    🏦 假冒銀行：「信用卡異常，請點擊連結驗證」
+                </button>
+                <button class="example-btn" onclick="fillExample(2)">
+                    🎁 中獎詐騙：「恭喜中獎 iPhone，請點擊領取」
+                </button>
+                <button class="example-btn" onclick="fillExample(3)">
+                    ✅ 正常訊息：「媽，我今天晚點回家」
+                </button>
+            </div>
+        </div>
+
+        <div class="footer">
+            使用 Google Gemini AI 技術<br>
+            資料不會儲存在伺服器
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyB_H4SBMggzumEpaDou-kgtGTggw3Yy0sg';
+        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
+
+        const examples = [
+            '🔥 穩賺不賠！保證月收益 30%！\n立即加入我的 LINE：@invest888\n前 100 名免費教學，錯過不再有！',
+            '【重要通知】\n您的信用卡出現異常交易，請立即點擊連結驗證身份：\nhttps://bank-verify.com/xxxxx\n否則將凍結帳戶。',
+            '恭喜您中獎了！您已被選中獲得 iPhone 15 Pro Max 一台，請點擊以下連結領取：https://bit.ly/xxxxx',
+            '媽，我今天晚點回家吃飯，公司有個會議要開。'
+        ];
+
+        function fillExample(index) {
+            document.getElementById('messageInput').value = examples[index];
+            // 自動捲動到輸入框
+            document.getElementById('messageInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        async function analyzeMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+
+            if (!message) {
+                showError('請輸入要檢測的訊息');
+                return;
+            }
+
+            // 顯示載入中
+            document.getElementById('resultDiv').classList.add('hidden');
+            document.getElementById('errorDiv').classList.add('hidden');
+            document.getElementById('loadingDiv').classList.remove('hidden');
+            document.getElementById('analyzeBtn').disabled = true;
+
+            try {
+                const result = await callGeminiAPI(message);
+                showResult(result);
+            } catch (error) {
+                showError('分析失敗：' + error.message);
+            } finally {
+                document.getElementById('loadingDiv').classList.add('hidden');
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        }
+
+        async function callGeminiAPI(message) {
+            const prompt = `你是一個專業的詐騙訊息偵測助手，專門分析台灣常見的詐騙手法。
+
+請分析以下訊息，判斷是否為詐騙。回傳 JSON 格式：
+
+{
+  "is_scam": boolean,
+  "confidence": number (0-100),
+  "reason": "一句繁體中文解釋，讓60歲長輩也能看懂",
+  "scam_type": "投資詐騙" | "假冒銀行" | "假冒政府" | "感情詐騙" | "釣魚連結" | "假冒客服" | "中獎詐騙" | "其他" | "非詐騙"
+}
+
+常見台灣詐騙特徵：
+- 投資詐騙：保證獲利、加 LINE 私聊、飆股明牌、虛擬貨幣投資群組
+- 假冒銀行：信用卡異常、帳戶凍結、要求點連結驗證
+- 假冒政府：健保/勞保/稅務異常、監管帳戶
+- 感情詐騙：交友軟體認識、快速表白、借錢週轉
+- 釣魚連結：短網址、奇怪網域、模仿知名網站
+
+請只回傳 JSON，不要有其他文字。
+
+訊息內容：
+"""
+${message}
+"""`;
+
+            const response = await fetch(`${API_URL}?key=${API_KEY}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: 500
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('API 呼叫失敗');
+            }
+
+            const data = await response.json();
+            const text = data.candidates[0].content.parts[0].text;
+
+            // 移除可能的 markdown code block 標記
+            let jsonText = text.trim();
+            if (jsonText.startsWith('```json')) {
+                jsonText = jsonText.substring(7);
+            } else if (jsonText.startsWith('```')) {
+                jsonText = jsonText.substring(3);
+            }
+            if (jsonText.endsWith('```')) {
+                jsonText = jsonText.substring(0, jsonText.length - 3);
+            }
+            jsonText = jsonText.trim();
+
+            return JSON.parse(jsonText);
+        }
+
+        function showResult(result) {
+            const { is_scam, confidence, reason, scam_type } = result;
+
+            let riskLevel, riskText, emoji;
+            if (confidence >= 80) {
+                riskLevel = 'high';
+                riskText = '高風險詐騙';
+                emoji = '🔴';
+            } else if (confidence >= 50) {
+                riskLevel = 'medium';
+                riskText = '中度可疑';
+                emoji = '🟡';
+            } else {
+                riskLevel = 'low';
+                riskText = '安全';
+                emoji = '🟢';
+            }
+
+            const resultHTML = `
+                <div class="result ${riskLevel}">
+                    <div class="result-header">
+                        <div class="result-emoji">${emoji}</div>
+                        <div class="result-title">${riskText}</div>
+                    </div>
+                    <div class="result-type">
+                        📋 類型：${scam_type}
+                    </div>
+                    <div class="result-reason">
+                        ${reason}
+                    </div>
+                    <div class="result-confidence">
+                        信心度：${confidence}%
+                    </div>
+                </div>
+            `;
+
+            const resultDiv = document.getElementById('resultDiv');
+            resultDiv.innerHTML = resultHTML;
+            resultDiv.classList.remove('hidden');
+
+            // 捲動到結果
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorDiv');
+            errorDiv.innerHTML = `<div class="error">❌ ${message}</div>`;
+            errorDiv.classList.remove('hidden');
+        }
+
+        // 支援 Enter 送出（Shift+Enter 換行）
+        document.getElementById('messageInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                analyzeMessage();
+            }
+        });
+    </script>
+</body>
+</html>
