@@ -1,0 +1,1136 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>大廠六週</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: full-bleed 3D office; HUD hugs the corners; decisions open as a centered sheet (bottom sheet on phones). */
+:root{
+  --bg:#0c0e11;
+  --panel:rgba(14,17,21,.9);
+  --panel-solid:#12161b;
+  --line:rgba(226,232,240,.12);
+  --fg:#eef1f5;
+  --muted:#9ba5b1;
+  --accent:#76b900;
+  --accent-ink:#0c0e11;
+  --good:#4cc38a;
+  --warn:#f0b429;
+  --bad:#f06464;
+  --gold:#ffcc4d;
+  --f-display:"Chakra Petch","Noto Sans TC",system-ui,sans-serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.6;overflow:hidden;-webkit-font-smoothing:antialiased}
+#app{position:relative;height:100%;width:100%;overflow:hidden}
+#stage{position:absolute;inset:0}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-display);font-variant-numeric:tabular-nums}
+
+/* ---------- HUD ---------- */
+.hud{position:absolute;pointer-events:none;z-index:5}
+.hud > *{pointer-events:auto}
+#hudTL{top:max(12px,env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:8px;max-width:min(360px,calc(100% - 32px))}
+#hudTR{top:max(12px,env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));width:230px}
+.chip-co{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;backdrop-filter:blur(8px)}
+.chip-co .dot{width:10px;height:10px;border-radius:2px;background:var(--accent);flex:none}
+.chip-co b{font-family:var(--f-display);font-size:15px;letter-spacing:.04em}
+.chip-co span{color:var(--muted);font-size:12px}
+.week{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;backdrop-filter:blur(8px)}
+.week .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.week .w{font-family:var(--f-display);font-size:22px;font-weight:700;line-height:1}
+.week .w small{font-size:13px;color:var(--muted);font-weight:500}
+.blocks{display:flex;gap:4px}
+.blocks i{width:18px;height:6px;border-radius:2px;background:var(--accent)}
+.blocks i.used{background:var(--line)}
+.obj{margin-top:8px;font-size:13px;color:var(--fg);display:flex;gap:8px;align-items:flex-start}
+.obj .bang{flex:none;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#1a1300;font-weight:900;font-size:12px;display:grid;place-items:center;margin-top:2px}
+.obj .bang.done{background:var(--good);color:#04140c}
+.stats{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:7px;backdrop-filter:blur(8px)}
+.stat{display:grid;grid-template-columns:52px 1fr 30px;align-items:center;gap:8px;font-size:12px}
+.stat label{color:var(--muted);letter-spacing:.04em}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar > i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .5s ease}
+.stat.energy .bar > i{background:var(--good)}
+.stat.energy.low .bar > i{background:var(--bad)}
+.stat.prog .bar > i{background:var(--gold)}
+.stat .num{text-align:right;font-size:13px}
+.flash-up{animation:fu .9s ease}
+.flash-dn{animation:fd .9s ease}
+@keyframes fu{0%{color:var(--good)}100%{color:var(--fg)}}
+@keyframes fd{0%{color:var(--bad)}100%{color:var(--fg)}}
+.hud-btns{display:flex;gap:6px}
+.hbtn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--muted)}
+.hbtn:hover{color:var(--fg);border-color:var(--accent)}
+
+#prompt{position:absolute;left:50%;transform:translateX(-50%);bottom:max(22px,calc(env(safe-area-inset-bottom,0px) + 14px));z-index:6;background:var(--accent);color:var(--accent-ink);font-weight:700;border-radius:999px;padding:12px 22px;font-size:15px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;gap:10px;align-items:center;white-space:nowrap}
+#prompt kbd{font-family:var(--f-display);background:rgba(0,0,0,.18);border-radius:4px;padding:0 6px;font-size:12px}
+#hint{position:absolute;left:50%;transform:translateX(-50%);bottom:max(22px,calc(env(safe-area-inset-bottom,0px) + 14px));z-index:4;color:var(--muted);font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;white-space:nowrap}
+#toasts{position:absolute;left:50%;transform:translateX(-50%);top:max(14px,env(safe-area-inset-top,0px));z-index:30;display:grid;gap:6px;justify-items:center;pointer-events:none;width:min(440px,calc(100% - 32px))}
+.toast{background:var(--panel-solid);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:8px 14px;font-size:13px;animation:tin .25s ease;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.toast.warn{border-left-color:var(--warn)}
+@keyframes tin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* ---------- Overlays ---------- */
+.overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(6,8,10,.55);backdrop-filter:blur(3px)}
+.sheet{background:var(--panel-solid);border:1px solid var(--line);border-radius:16px;width:min(680px,100%);max-height:100%;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.55);animation:sin .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes sin{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.sheet-h{display:flex;gap:14px;align-items:center;padding:20px 22px 0}
+.avatar{width:46px;height:46px;border-radius:12px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:900;font-size:18px;flex:none}
+.who b{display:block;font-size:15px}
+.who span{font-size:12px;color:var(--muted)}
+.tag{margin-left:auto;font-size:11px;letter-spacing:.08em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.tag.main{color:#1a1300;background:var(--gold);border-color:var(--gold);font-weight:700}
+.sheet-b{padding:14px 22px 22px;display:grid;gap:14px}
+.sheet h2{font-size:22px;line-height:1.35;margin:0;text-wrap:balance;font-weight:900}
+.ctx{color:#d4dae1;margin:0}
+.choices{display:grid;gap:8px}
+.choice{text-align:left;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;transition:border-color .15s,background .15s}
+.choice:hover{border-color:var(--accent);background:rgba(255,255,255,.07)}
+.choice .k{font-family:var(--f-display);font-weight:700;color:var(--accent);flex:none;width:18px}
+.res-badge{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:13px;border-radius:999px;padding:4px 12px;width:max-content}
+.res-badge.best{background:rgba(76,195,138,.15);color:var(--good)}
+.res-badge.ok{background:rgba(240,180,41,.14);color:var(--warn)}
+.res-badge.bad{background:rgba(240,100,100,.14);color:var(--bad)}
+.picked{font-size:13px;color:var(--muted);border-left:2px solid var(--line);padding-left:10px}
+.deltas{display:flex;flex-wrap:wrap;gap:6px}
+.d{font-size:12px;border-radius:6px;padding:2px 8px;background:rgba(255,255,255,.06)}
+.d.up{color:var(--good)} .d.dn{color:var(--bad)}
+.d.cp{color:var(--muted)}
+.lesson{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:linear-gradient(180deg,rgba(255,255,255,.04),transparent)}
+.lesson .eb{font-size:11px;letter-spacing:.12em;color:var(--accent);font-weight:700}
+.lesson h3{margin:2px 0 6px;font-size:17px}
+.lesson p{margin:0;color:#cfd6de;font-size:14px}
+.drill{margin-top:10px;font-size:13px;background:rgba(255,204,77,.08);border-radius:8px;padding:8px 12px;color:#f3e3b5}
+.drill b{color:var(--gold)}
+.alt{font-size:13px;color:var(--muted)}
+.alt summary{cursor:pointer}
+.alt ul{margin:6px 0 0;padding-left:18px}
+.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.btn{border-radius:10px;padding:10px 18px;font-weight:700;border:1px solid var(--line)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost:hover{border-color:var(--fg)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.act-fx{font-size:13px;color:var(--muted)}
+
+/* ---------- Title ---------- */
+#title{background:linear-gradient(180deg,rgba(6,8,10,.25),rgba(6,8,10,.82) 60%);align-items:flex-end;overflow:auto}
+.title-wrap{width:min(1100px,100%);display:grid;gap:22px;padding-bottom:max(8px,env(safe-area-inset-bottom,0px))}
+.brand .eb{font-family:var(--f-display);letter-spacing:.3em;font-size:12px;color:var(--muted)}
+.brand h1{font-size:clamp(44px,8vw,88px);line-height:1;margin:6px 0 10px;font-weight:900;letter-spacing:-.01em}
+.brand h1 em{font-style:normal;font-family:var(--f-display);color:var(--accent);transition:color .3s}
+.brand p{margin:0;color:#c9d1da;max-width:58ch}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.co{position:relative;text-align:left;background:rgba(14,17,21,.86);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;display:grid;gap:8px;transition:transform .2s,border-color .2s;min-width:0}
+.co:hover,.co:focus-visible{transform:translateY(-3px);border-color:var(--c)}
+.co .nm{font-family:var(--f-display);font-size:24px;font-weight:700;letter-spacing:.03em;color:var(--c)}
+.co .rl{font-size:13px;color:var(--fg)}
+.co ul{margin:0;padding-left:16px;font-size:12.5px;color:var(--muted)}
+.co .meta{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;margin-top:2px;gap:8px}
+.co .meta b{color:var(--fg);font-weight:500}
+.disc{font-size:11.5px;color:var(--muted);margin:0}
+.howto{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:#c9d1da}
+.howto span b{font-family:var(--f-display);color:var(--fg)}
+
+/* ---------- Review ---------- */
+.sheet.wide{width:min(880px,100%)}
+.rv-top{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:end}
+.rv-rating{font-family:var(--f-display);font-size:clamp(28px,5vw,40px);font-weight:700;line-height:1.05;color:var(--accent)}
+.rv-zh{font-size:15px;color:var(--fg);font-weight:700}
+.rv-score{font-family:var(--f-display);font-size:44px;font-weight:700;line-height:1;text-align:right}
+.rv-score small{display:block;font-size:12px;color:var(--muted);font-family:var(--f-body);font-weight:500}
+.rv-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.box{border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.box h4{margin:0 0 10px;font-size:12px;letter-spacing:.12em;color:var(--muted);font-weight:700}
+#radar{width:100%;max-width:320px;aspect-ratio:1;display:block;margin:0 auto}
+.legend{display:flex;gap:14px;justify-content:center;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.dec{display:grid;gap:6px;font-size:13px}
+.dec div{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center}
+.dec .wk{color:var(--muted);font-family:var(--f-display)}
+.pill{font-size:11px;border-radius:999px;padding:1px 8px;font-weight:700}
+.pill.best{background:rgba(76,195,138,.15);color:var(--good)}
+.pill.ok{background:rgba(240,180,41,.14);color:var(--warn)}
+.pill.bad{background:rgba(240,100,100,.14);color:var(--bad)}
+.drills{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.drills li{font-size:13.5px;background:rgba(255,204,77,.07);border-radius:8px;padding:10px 12px}
+.drills li b{display:block;color:var(--gold);font-size:12px;letter-spacing:.06em}
+.mgr{font-size:14px;color:#d4dae1;border-left:3px solid var(--accent);padding-left:12px;margin:0}
+
+/* ---------- Playbook ---------- */
+.pb-list{display:grid;gap:10px}
+.pb-item{border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.pb-item .co-t{font-size:11px;letter-spacing:.1em;color:var(--muted)}
+.pb-item h3{margin:2px 0 4px;font-size:15px}
+.pb-item p{margin:0;font-size:13px;color:#cfd6de}
+.empty{color:var(--muted);font-size:14px}
+
+@media (max-width:760px){
+  .cards{grid-template-columns:1fr}
+  .co ul{display:none}
+  #hudTR{width:auto;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));top:auto;bottom:max(74px,calc(env(safe-area-inset-bottom,0px) + 66px))}
+  .stats{grid-template-columns:1fr 1fr;gap:6px 12px;padding:8px 10px}
+  .stat{grid-template-columns:48px 1fr 24px;font-size:11px;gap:6px}
+  .overlay:not(#title){align-items:flex-end;padding-block:0}
+  .overlay:not(#title) .sheet{border-radius:16px 16px 0 0;max-height:88%;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .rv-grid{grid-template-columns:1fr}
+  .sheet-h{padding:16px 16px 0}
+  .sheet-b{padding:12px 16px 18px}
+  .sheet h2{font-size:19px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="app">
+  <div id="stage"></div>
+
+  <div class="hud" id="hudTL" hidden>
+    <div class="chip-co"><span class="dot"></span><div><b id="hCo">NVIDIA</b><br><span id="hRole"></span></div></div>
+    <div class="week">
+      <div class="row"><div class="w num">第 <span id="hWeek">1</span> 週 <small>/ 6</small></div><div class="blocks" id="hBlocks" aria-label="本週剩餘時段"></div></div>
+      <div class="obj"><span class="bang" id="hBang">!</span><span id="hObj"></span></div>
+    </div>
+    <div class="hud-btns"><button class="hbtn" id="btnBook">工作手冊</button><button class="hbtn" id="btnQuit">換公司</button></div>
+  </div>
+  <div class="hud" id="hudTR" hidden><div class="stats" id="hStats"></div></div>
+
+  <button id="prompt" hidden></button>
+  <div id="hint" hidden>點擊地面移動 · 走進發光圓圈互動</div>
+  <div id="toasts"></div>
+
+  <div class="overlay" id="title">
+    <div class="title-wrap">
+      <div class="brand">
+        <div class="eb">A SIX-WEEK PERFORMANCE CYCLE</div>
+        <h1>大廠<em id="tAccent">六週</em></h1>
+        <p>選一家公司入職。六週內，你要交付專案、跟人合作、在壓力下做判斷，最後進入績效校準。每個決定都對應真實大公司的工作方法，結束時你會拿到一份能力報告和可以直接帶回工作的練習。</p>
+      </div>
+      <div class="cards" id="coCards"></div>
+      <div class="howto"><span><b>每週 4 個時段</b> 決定時間花在哪</span><span><b>!</b> 標記本週關鍵事件</span><span><b>精力</b> 歸零會倦怠</span><span><b>第 6 週後</b> 進入績效評核</span></div>
+      <p class="disc">非官方模擬，與任何公司無關。情境依公開報導的企業文化與工作方法改編，人物皆為虛構。</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const pick = a => a[Math.floor(Math.random()*a.length)];
+
+/* =====================================================================
+   CONTENT
+   fx: i 影響力 · t 信任 · v 能見度 · e 精力 · c 專業 · p 專案進度
+   cp: def 問題定義 · pri 優先排序 · comm 溝通協作 · tech 技術判斷 · own 主人翁 · grit 韌性
+   ===================================================================== */
+const STAT_LABEL = {i:"影響力", t:"信任", v:"能見度", e:"精力", c:"專業", p:"專案進度"};
+const COMP_LABEL = {def:"問題定義", pri:"優先排序", comm:"溝通協作", tech:"技術判斷", own:"主人翁", grit:"韌性"};
+const RATE_LABEL = {best:"最佳判斷", ok:"可行，但有代價", bad:"高風險判斷"};
+
+const COMPANIES = {
+nvidia:{
+  name:"NVIDIA", accent:"#76b900", ink:"#0c0e11",
+  role:"CUDA 函式庫工程師 · 推論效能組", level:"Senior SWE",
+  mission:"加速運算：讓 AI 與科學運算快上數個數量級。",
+  goal:"讓新架構上的推論 kernel 在年度發表前盡量接近物理極限。",
+  culture:["扁平組織：主管可能有數十位直屬，資訊靠每週 Top 5 Things 直接往上流","Speed of light：用物理極限，而不是過去的表現來設定目標","智識誠實：公開挑戰、公開學習，被指出錯誤是常態"],
+  diff:"高強度 · 技術深度", reviewName:"年度績效評核（模擬）",
+  ratings:[["Outstanding","卓越"],["Exceeds","超出期望"],["Strong","表現強勁"],["Meets","達成期望"],["Partially Meets","部分達成"],["Needs Improvement","待改進"]],
+  st:{desk:["你的座位","深度工作"],manager:["主管 Priya","工程經理"],meeting:["設計審查室",""],pantry:["茶水間","同事 Ken"],lounge:["休息區",""],special:["GPU 實驗室","架構師 Marcus"]},
+  special:{label:"跑 Nsight Profiling", desc:"在實機上量測 kernel，找出瓶頸。", fx:{p:9,c:5,e:-10}, cp:{tech:2}},
+  tips:["這裡常說「任務才是老闆」：專案需要什麼，比組織圖上誰管誰更重要。","寫 T5T 時，想像讀者只有 10 秒，而且他明天要拿去做決定。","優化之前先算 speed of light，才知道值不值得花時間。","跨團隊求助時帶著最小重現去，對方會優先處理。"],
+  posters:["SPEED OF LIGHT","ONE TEAM","INTELLECTUAL HONESTY"],
+  weeks:[
+   {at:"manager", npc:["主管 Priya","工程經理"], title:"第一封 Top 5 Things",
+    ctx:"報到第一週。主管說：「這裡每個人每週寄 Top 5 Things（T5T），寫你最重要的五件事。高層真的會讀。」你手上只有環境設定，和兩場客戶會議的旁聽筆記。你會怎麼寫？",
+    choices:[
+     {r:"best", t:"寫 3 個觀察、1 個風險、1 個下週要驗證的假設。例如：「客戶 A 的推論延遲有 40% 卡在 batch=1 的小 kernel。」", fx:{i:8,v:10,t:4,c:2}, cp:{def:6,comm:4}, out:"主管把你的第 2 點轉寄給架構師：「新人看到我們沒注意的東西。」你的名字第一次出現在別人的信裡。"},
+     {r:"ok", t:"老實列出完成事項：裝好環境、讀完文件、參加 6 場會議、開始讀程式碼。", fx:{i:1,v:2,t:2}, cp:{comm:1}, out:"沒人回信。這是一份完整的活動紀錄，但讀者讀完不知道該做什麼不同的事。"},
+     {r:"bad", t:"第一週沒有實質產出，先不寄，等有成果再說。", fx:{v:-3,t:-3}, cp:{own:-2,comm:-2}, out:"週五主管問：「你的 T5T 呢？」在扁平組織裡，沉默不會被當成謙虛，只會讓你消失。"}],
+    lesson:{h:"T5T 是訊號，不是週報", b:"據公開報導，NVIDIA 用 Top 5 Things 讓資訊不經層級直接流到決策者。好的條目回答三件事：我看到了什麼、所以呢、我接下來做什麼。開了幾場會是成本，不是產出。", d:"這週五寫你自己的 Top 5：每條都用「觀察 → 影響 → 下一步」，且至少一條是別人還沒注意到的風險。"}},
+   {at:"special", npc:["架構師 Marcus","GPU 架構"], title:"光速是多少？",
+    ctx:"你把推論 kernel 從 4.6ms 優化到 4.2ms，興奮地回報。架構師只問一句：「這個運算的 speed of light 是多少？」",
+    choices:[
+     {r:"best", t:"回去算物理上限：資料量 ÷ HBM 頻寬、FLOPs ÷ 峰值算力，取較大者約 1.1ms。結論：現在只到上限的 26%，而且是 memory-bound。", fx:{i:12,c:8,p:10,e:-8}, cp:{tech:6,def:5}, out:"架構師點頭：「現在我們知道還有 3.8 倍的空間，也知道該往哪裡挖。」你的目標從「再快 10%」改成「到 70% SOL」。"},
+     {r:"ok", t:"拿上一版比：已經快了 9%，是這季最大的進步。", fx:{i:3,v:2}, cp:{tech:1}, out:"「跟過去的自己比，永遠會覺得自己很快。」對方不置可否。你贏了一場比賽，但不知道終點線在哪。"},
+     {r:"bad", t:"翻其他團隊的 benchmark，說我們跟業界最好的差不多。", fx:{i:1,t:-2}, cp:{def:-2}, out:"業界最好的可能也只有 SOL 的 30%。拿別人當天花板，等於讓對手幫你設定目標。"}],
+    lesson:{h:"用物理極限設定目標", b:"Speed-of-light 思考：先算出物理上可能的最佳值（頻寬、算力、時間、成本），再看現況差多少。差距本身就是路線圖，也能避免在已經接近上限的地方浪費力氣。", d:"挑你手上一個任務，寫下它的理論最佳值（最短時間或最低成本），算出現況是理論值的幾 %。"}},
+   {at:"meeting", npc:["Lena","客戶工程"], title:"客戶上線前 48 小時",
+    ctx:"一家雲端大客戶回報：新驅動 + FP8 + batch=1 時輸出錯誤，他們 48 小時後要上線。目前不確定是你的 kernel、編譯器還是驅動的問題。頻道裡大家都在問：「這是誰的？」",
+    choices:[
+     {r:"best", t:"先動手：30 分鐘內做出最小重現，用二分法鎖定是某個驅動版本觸發，附上資料直接把驅動團隊拉進來。", fx:{i:14,t:10,v:6,e:-15,p:4}, cp:{own:7,tech:4,comm:3}, out:"最小重現讓驅動團隊 3 小時就找到 bug，客戶準時上線。對方 VP 在信裡點名感謝你，雖然最後的修正不在你的程式碼裡。"},
+     {r:"ok", t:"先在頻道問清楚 ownership，等 triage 結果再處理，避免做白工。", fx:{t:-4,i:2}, cp:{pri:1,own:-3}, out:"Triage 花了一天，你第二天才開始查。最後趕在死線前修好，但客戶留下一句：「你們的回應比我想像中慢。」"},
+     {r:"bad", t:"立刻寄信給 VP 升級，標題寫「緊急：客戶阻塞」。", fx:{v:4,t:-6,e:-5}, cp:{comm:-3}, out:"VP 回信：「好，問題在哪？誰在處理？」你沒有答案。沒有資料的升級，只是把焦慮往上傳。"}],
+    lesson:{h:"One Team：問題沒有邊界", b:"大公司最常見的失敗不是技術，而是「這不是我的」。跨團隊除錯最有效的貨幣是最小重現加上你的假設：它把模糊的抱怨變成任何人都能接手的工作。升級是必要的，但要帶著資料和選項。", d:"下次遇到 bug 先別急著 @ 人。寫一份三行 repro：環境、步驟、預期與實際，再加一句你的假設。"}},
+   {at:"meeting", npc:["資深架構師 Marcus","設計審查"], title:"在 40 人面前被指出錯誤",
+    ctx:"季度設計審查，線上 40 人，好幾位總監。資深架構師打斷你：「這方案在上一代有效，但新架構的 shared memory 配置不同，你的 tiling 會失效。」全場安靜。",
+    choices:[
+     {r:"best", t:"「好問題，我還沒驗證新架構。週五前我用模擬器跑兩種 tiling，數據貼在這個 thread。」", fx:{t:10,v:8,c:4,i:6}, cp:{comm:5,grit:5,tech:2}, out:"週五你貼出數據：他對了一半，另一種 tiling 反而快 12%。會後兩位總監私訊你要報告連結。"},
+     {r:"ok", t:"先不在會上回應，會後私下找他談。", fx:{t:2,c:2}, cp:{grit:1}, out:"私下溝通沒有錯，但 40 個人帶著「這方案有洞」的印象離開。在公開場合留下的問題，最好也在公開場合收尾。"},
+     {r:"bad", t:"立刻辯護：「我們測過了，這不會是問題。」", fx:{t:-8,v:2}, cp:{comm:-3,grit:-2}, out:"兩週後在新架構上測，tiling 真的失效。大家記得的不是 bug，是你當時的語氣。"}],
+    lesson:{h:"智識誠實勝過面子", b:"據報導，NVIDIA 的 CEO 傾向在公開場合給回饋，讓所有人一起學。在這種文化裡，被挑戰是常態；你被評價的不是有沒有錯，而是更新判斷的速度。最穩的回應：承認未知、提出驗證方法、給出時間點。", d:"下次被公開質疑時，用這句開頭：「我還沒驗證這點，我會在＿＿之前用＿＿方法確認。」"}},
+   {at:"manager", npc:["主管 Priya","工程經理"], title:"Keynote 數字 vs 開發者的 bug",
+    ctx:"三件事同時來：① 行銷要一個年度大會 Keynote 用的效能數字，週四要；② CUDA 論壇上一個影響上千名開發者的 bug；③ 你的主線：kernel 要達到 70% SOL。你只有這一週。",
+    choices:[
+     {r:"best", t:"先問行銷這個數字要支撐什麼訊息，給一個附註清楚的誠實數字；把 bug 的重現和修正方向整理好交接給隊友；守住主線。", fx:{i:12,p:10,t:6,e:-10}, cp:{pri:7,comm:4}, out:"行銷拿到一個不會被打臉的數字；隊友修好 bug，還在論壇署名你的分析；主線推進到 66% SOL。"},
+     {r:"ok", t:"全部自己扛，連續三天熬夜。", fx:{i:8,p:8,e:-30,c:3}, cp:{own:3,grit:1,pri:-3}, out:"三件事都完成了，但週五你在 code review 漏看一個 race condition。英雄模式撐得了一週，撐不了一季。"},
+     {r:"bad", t:"只做 Keynote 數字，那是能見度最高的事。", fx:{v:10,i:2,p:-2,t:-4}, cp:{pri:-4}, out:"Keynote 很成功。但論壇上的 bug 開始在社群發酵。開發者信任是 CUDA 生態的核心，你優化了最顯眼的事，而不是最重要的事。"}],
+    lesson:{h:"優先排序從理解決策開始", b:"大公司裡請求永遠比時間多。先問：這件事要支撐什麼決策？做到 80% 夠不夠？很多請求可以縮小、交接或延後。真正要守住的，是只有你能做、而且決定成敗的那一件。", d:"把這週待辦分成三欄：只有我能做／可以交接／可以縮小或延後，每欄至少一件。"}},
+   {at:"meeting", npc:["總監 David","軟體總監"], title:"年度發表的列車要開了",
+    ctx:"新架構即將在年度大會發表。你的 kernel 到了 68% SOL，再兩週可能到 80%，但會錯過發表當天的軟體版本。產品一年一代，列車不等人。",
+    choices:[
+     {r:"best", t:"如期上車：發布 68% 版本，release notes 誠實寫明已知限制，並公開下一版到 80% 的路線圖。", fx:{i:16,t:8,v:8}, cp:{pri:5,own:4,def:2}, out:"客戶發表當天就能用。兩週後的更新又帶來一次新聞。準時加上可迭代，勝過完美。"},
+     {r:"ok", t:"延後兩週，到 80% 再發布。", fx:{i:4,c:4,t:-4}, cp:{tech:2,pri:-3}, out:"80% 很漂亮，但錯過發表，客戶的評估已經用舊版跑完。你贏了 benchmark，輸了時機。"},
+     {r:"bad", t:"如期發布，但不提限制，只報最好看的情境。", fx:{i:6,v:4,t:-12}, cp:{comm:-4,own:-3}, out:"客戶在真實工作負載上跑出很不一樣的數字，寫信給你的總監。信任的代價遠高於一個好看的數字。"}],
+    lesson:{h:"節奏是一種戰略", b:"NVIDIA 公開表示 AI 產品走一年一代的節奏。節奏讓每個人都知道列車何時發車，因此能規劃、能取捨。成熟的工程師會把「完美」拆成「這一版的誠實現況」加上「下一版的承諾」。", d:"問自己：如果下週就要交，我會砍掉什麼？把砍掉的東西寫成「下一版」清單。"}}
+  ]},
+meta:{
+  name:"Meta", accent:"#2d7bff", ink:"#ffffff",
+  role:"E4 軟體工程師 · Reels 推薦", level:"E4",
+  mission:"賦予人們建立社群的力量，讓世界更緊密。",
+  goal:"在半年度 PSC 前，交付可量化、經得起檢驗的排序改進。",
+  culture:["影響力至上：評核看你動了哪些指標，不看工時","資料驅動：A/B 實驗決定能不能上線","XFN 協作：工程、PM、資料科學、設計共同負責成果"],
+  diff:"指標壓力 · 跨部門協作", reviewName:"PSC 半年度評核（模擬）",
+  ratings:[["Redefines Expectations","重新定義期望"],["Greatly Exceeds","遠超期望"],["Exceeds","超出期望"],["Consistently Meets","穩定達成"],["Meets Most","大致達成"],["Does Not Meet","未達期望"]],
+  st:{desk:["你的座位","深度工作"],manager:["主管 Sam","工程經理"],meeting:["會議室",""],pantry:["微型廚房","同事 Noah"],lounge:["休息區",""],special:["數據儀表板","資料科學 Mei"]},
+  special:{label:"分析實驗數據", desc:"在儀表板上切分群、看 guardrail 指標。", fx:{p:7,c:3,v:2,e:-8}, cp:{def:2}},
+  tips:["評核看的是影響，不是工時。每件事都問一句：它動了哪個指標？","把進展寫成內部貼文分享出去，讓工作被看見，也讓別人能接手。","Move fast，但別忘了 guardrail 指標。","找一位比你高兩級的導師，每兩週聊一次。"],
+  posters:["MOVE FAST","BE DIRECT","FOCUS ON LONG-TERM IMPACT"],
+  weeks:[
+   {at:"meeting", npc:["Ravi","Bootcamp 導師"], title:"Bootcamp：選團隊",
+    ctx:"新進工程師先上 Bootcamp，再自己挑團隊。三個團隊在搶你：最熱門的 GenAI 新團隊，願景很大，但目標還沒寫清楚；Reels 排序團隊，指標明確，有位口碑很好的 TL 願意帶你；還有一位很有名的總監的新組：「先進來，再說要做什麼。」",
+    choices:[
+     {r:"best", t:"選 Reels 排序團隊：範圍清楚、影響可量化、有人帶。", fx:{i:6,c:6,t:4,p:4}, cp:{def:5,pri:3}, out:"第一週你就拿到一個有明確指標的小任務。新人最需要的不是最大的舞台，而是第一個能被衡量的勝利。"},
+     {r:"ok", t:"選 GenAI 新團隊：最熱門、成長最快。", fx:{v:6,i:2,e:-6}, cp:{grit:2,def:-1}, out:"很刺激，但方向兩週內改了三次。你學到很多，只是到評核時很難說清楚「你的影響是什麼」。高成長團隊適合已經會自己定義問題的人。"},
+     {r:"bad", t:"選名人總監的新組：跟對人最重要。", fx:{v:4,i:-2}, cp:{def:-3}, out:"總監很忙，你一個月見不到他兩次。名氣不會傳染，清楚的範圍和每週給你回饋的人才會。"}],
+    lesson:{h:"用三個問題挑團隊", b:"① 這個團隊的成功用什麼指標衡量？② 我的第一個交付物是什麼、多久能上線？③ 誰會每週給我回饋？三題都答得出來，才是新人能累積影響力的地方。", d:"評估下一個專案或工作機會時，把這三個問題問出口，寫下答案。"}},
+   {at:"desk", npc:["Alex","Tech Lead"], title:"第一個 diff 收到 23 則留言",
+    ctx:"你送出一個 900 行的 diff。TL 留了 23 則 review 意見，其中 2 則你不同意，幾則只是風格問題。隊友小聲說：「找別人 stamp 比較快啦。」",
+    choices:[
+     {r:"best", t:"全部回應：同意的直接改，不同意的 2 則約 15 分鐘語音討論；同時把 diff 拆成 4 個小 diff。", fx:{c:10,t:8,p:6,e:-8}, cp:{comm:5,tech:4}, out:"語音 10 分鐘就解決：一則你對，一則他對。4 個小 diff 一天內全部合併。TL 在你的 1:1 筆記寫下「很好合作」。"},
+     {r:"ok", t:"逐條在留言裡辯論，把每個論點寫清楚。", fx:{c:4,t:-2,e:-6,p:2}, cp:{tech:2,comm:-1}, out:"留言串長到 60 則，你多數論點是對的，但花了四天。文字擅長傳遞結論，不擅長解決分歧。"},
+     {r:"bad", t:"找另一位比較好說話的人 stamp。", fx:{p:6,t:-8}, cp:{own:-3,comm:-2}, out:"Diff 合併了。兩天後線上出現 crash，正是 TL 當初指出的問題之一。「找人 stamp」這件事在組裡傳得很快。"}],
+    lesson:{h:"小 diff、快回饋", b:"在大型 codebase 裡，code review 是學習和傳承最快的管道。小而專注的 diff 好審、合併快、出事也好回滾。分歧超過兩輪留言，就改成同步對話。", d:"下次提交前檢查：這個 PR 是否只做一件事、能不能在 15 分鐘內審完？不能就拆。"}},
+   {at:"special", npc:["Mei","資料科學家"], title:"A/B 實驗：時長上升，但……",
+    ctx:"你的排序改動跑了兩週 A/B 實驗：觀看時長 +0.8%，統計顯著。但 guardrail 指標「內容檢舉率」+3%，部分地區的低品質內容曝光上升。PM 想直接上線：「topline 漲了！」",
+    choices:[
+     {r:"best", t:"先做分群分析：發現增益有一半來自特定地區的誘餌式內容。加上品質過濾重跑，時長 +0.5%、檢舉率持平，再上線。", fx:{i:14,c:6,t:6,p:8,e:-10}, cp:{def:6,tech:4,own:3}, out:"+0.5% 比較少，但它是真的。資料科學家在群組說：「這才是我們要的實驗紀律。」幾個月後同類改動因內容品質問題被大規模回滾，你的沒有。"},
+     {r:"bad", t:"上線。topline 才是評核在看的。", fx:{i:6,v:4,t:-8}, cp:{def:-4,own:-2}, out:"兩週後內容誠信團隊找上門，改動被回滾，你的 +0.8% 歸零。指標只是代理，優化代理而忘了目的，指標就會反過來咬你。"},
+     {r:"ok", t:"直接放棄這個改動，避免風險。", fx:{t:2,i:-2}, cp:{grit:-2,def:1}, out:"很安全，但浪費了一個真實的訊號。資料說的是「一部分好、一部分壞」，答案通常在拆開之後。"}],
+    lesson:{h:"指標是代理，不是目標", b:"Goodhart 定律：當一個指標變成目標，它就不再是好指標。成熟的實驗文化同時看 topline 和 guardrail，並用分群找出增益從哪裡來。數字變好時，更要追問來源。", d:"下次看到數字上升，問三題：從哪個分群來？什麼指標可能同時變差？三個月後還成立嗎？"}},
+   {at:"meeting", npc:["Jordan","產品經理"], title:"PM、資料科學、設計各執一詞",
+    ctx:"PM 要在這半年底前上線新功能；資料科學說實驗樣本不足、結論不可靠；設計師要求再做一輪使用者研究。會已經開了兩次，沒有結論。大家期待你推進。",
+    choices:[
+     {r:"best", t:"寫一頁文件：三個選項各自的成本、風險、時程，加上你的建議；指定一位 DRI（決策負責人），約 30 分鐘決策會議。", fx:{i:12,v:10,t:6}, cp:{comm:6,def:4,pri:3}, out:"會議 20 分鐘就決定：先小範圍上線，同步跑研究。PM 說：「這份文件幫我們省了兩週。」你開始被看作能推動事情的人。"},
+     {r:"bad", t:"站在 PM 那邊，畢竟 roadmap 是 PM 的。", fx:{p:6,t:-6}, cp:{comm:-3}, out:"功能上線了，但資料科學和設計覺得被繞過，下個專案的合作明顯變冷。在 XFN 團隊裡，沒有誰的意見是多餘的。"},
+     {r:"ok", t:"先私下動工，等他們討論完再說。", fx:{p:8,e:-8,t:-3}, cp:{own:2,comm:-3}, out:"你做得很快，但方向後來調整，一半的程式碼白寫。在沒有共識前寫程式，是在賭。"}],
+    lesson:{h:"用一頁文件推動決策", b:"大公司常用 DRI（Directly Responsible Individual）明確指定誰做決定。卡住的會議通常不缺資訊，缺的是「選項並排比較」和「誰說了算」。一頁紙能把爭論變成選擇。", d:"下一個卡住的討論，寫一頁：背景、2–3 個選項、各自的成本與風險、你的建議、需要誰在何時決定。"}},
+   {at:"manager", npc:["主管 Sam","工程經理"], title:"組織重整的傳聞",
+    ctx:"內部開始流傳組織重整的消息，有隊友在偷偷面試。主管找你：「有個專案的負責人離開了，你能接嗎？」你手上已經滿檔。",
+    choices:[
+     {r:"best", t:"接，但提出交換：放掉一個低優先任務；並寫下接手專案的目標與成功指標，請主管確認。", fx:{i:12,v:8,t:6,p:4}, cp:{pri:6,own:5,grit:3}, out:"主管同意放掉低優先任務。半年後回顧，這個接手的專案是你評核裡最亮眼的一段。不確定的時候，讓自己的影響清楚可見，是最好的保護。"},
+     {r:"ok", t:"全部接下，每週工作 70 小時。", fx:{i:8,e:-30,v:4}, cp:{own:3,grit:2,pri:-3}, out:"你撐住了，但品質開始下滑，主管也沒發現你超載，因為你從沒說。"},
+     {r:"bad", t:"也開始更新履歷，把心力放在面試。", fx:{e:5,i:-6,t:-4}, cp:{grit:-3,own:-3}, out:"重整結果你們組沒受影響，但這個月你的產出明顯下滑。焦慮很正常，但把注意力交給傳聞，你就失去唯一能控制的東西。"}],
+    lesson:{h:"不確定時，控制你能控制的", b:"大公司會週期性重整、調整優先順序（例如 Meta 2023 年的「效率年」）。這時最有價值的是：清楚的影響紀錄、說「好，但……」的能力，以及不讓工作量無聲地累積。", d:"下次被加任務時練習這句：「可以。為了做好它，我建議先暫停＿＿，你同意嗎？」"}},
+   {at:"manager", npc:["主管 Sam","工程經理"], title:"PSC：寫自評",
+    ctx:"半年度績效評核到了。你的自評會被帶進校準會議，一群你沒見過的主管會在 3 分鐘內讀完它。",
+    choices:[
+     {r:"best", t:"寫 3 個影響項目：做了什麼 → 量化結果 → 你的具體貢獻 → 怎麼讓別人更好；最後誠實寫一個成長方向。", fx:{v:14,i:8,t:4}, cp:{comm:6,def:4}, out:"校準會議上，主管直接引用你的第一段。好的自評讓替你說話的人有彈藥。"},
+     {r:"ok", t:"列出所有做過的事，越完整越好。", fx:{v:4}, cp:{comm:1}, out:"兩頁清單。讀的人找不到重點，只好自己猜你的影響，而且通常猜少。"},
+     {r:"bad", t:"寫得簡短謙虛，相信主管都知道。", fx:{v:-4}, cp:{comm:-3}, out:"主管確實知道，但校準會議上的其他主管不知道。在大公司，沒有被寫下來的影響，幾乎等於沒發生。"}],
+    lesson:{h:"影響力要能被轉述", b:"評核是一場資訊傳遞：你的工作要經過主管、跨組主管、校準會議，才變成評等。每一層都會壓縮資訊，所以要寫成一句話就能轉述的影響：「他讓 X 指標提升 Y，方法是 Z。」", d:"用一句話寫下你這季最大的影響：「我讓＿＿從＿＿變成＿＿，方法是＿＿。」寫不出來，就是下一季要補的。"}}
+  ]},
+spacex:{
+  name:"SpaceX", accent:"#ff7a3d", ink:"#130700",
+  role:"Starship 結構工程師 · Starbase", level:"Engineer II",
+  mission:"讓人類成為多行星物種。",
+  goal:"讓你的子系統在下一次飛行前更輕、更可靠。",
+  culture:["第一性原理：每條需求都要有負責人的名字，然後被質疑","硬體豐富的迭代：測試、失敗、修正、再測試","極高強度：工時長、節奏快、責任直接落在你身上"],
+  diff:"極高強度 · 硬體迭代", reviewName:"績效回顧（模擬）",
+  ratings:[["Outstanding","卓越"],["Exceeds","超出期望"],["Strong","表現強勁"],["Meets","達成期望"],["Partially Meets","部分達成"],["Needs Improvement","待改進"]],
+  st:{desk:["你的座位","深度工作"],manager:["主管 Kai","責任工程師"],meeting:["任務控制室",""],pantry:["咖啡角","技師 Rico"],lounge:["休息區",""],special:["測試台","測試工程師 Tomás"]},
+  special:{label:"跑硬體測試", desc:"上測試台加壓到極限，收集真實數據。", fx:{p:12,c:4,e:-16}, cp:{tech:2,grit:1}},
+  tips:["每條需求都要有人名。找不到人，就去質疑它。","如果刪掉的東西沒有加回至少 10%，代表刪得不夠多。","在測試台上學，比在簡報裡猜快。","提出問題時，帶著最快的驗證方法一起來。"],
+  posters:["MAKE LIFE MULTIPLANETARY","DELETE THE PART","TEST · FAIL · FIX"],
+  weeks:[
+   {at:"manager", npc:["主管 Kai","責任工程師"], title:"這條需求是誰訂的？",
+    ctx:"你接手一個支架設計，規格寫「安全係數 3.0」，照做會重 18 公斤。這裡流傳一個原則：每條需求都要有一個人名，不能只有部門名。這條規格只寫著「結構組」。",
+    choices:[
+     {r:"best", t:"找出訂這條需求的人：發現它沿用自三年前的舊載具。依實際載荷分析，1.5 已有足夠裕度，附上分析提案修改。", fx:{i:14,c:6,t:4,p:8}, cp:{def:7,own:3}, out:"原訂者說：「喔，那是當時保守估的。」改成 1.5 後減重 11 公斤。在火箭上，每一公斤都是酬載。"},
+     {r:"ok", t:"照規格做，規格就是規格。", fx:{p:6,c:2}, cp:{def:-2}, out:"設計很穩，也很重。沒人怪你，也沒人記得你。照做很安全，質疑才有影響力。"},
+     {r:"bad", t:"認定規格太保守，自己改成 1.2。", fx:{i:4,t:-8,p:4}, cp:{tech:-2,own:-1}, out:"品質工程師在審查時退件：沒有分析、沒有原訂者同意。質疑需求要帶證據，不是帶直覺。"}],
+    lesson:{h:"第一步：讓需求變得沒那麼蠢", b:"Musk 公開講過的「五步驟」：① 質疑需求 ② 刪除零件或流程 ③ 簡化與優化 ④ 加速 ⑤ 自動化，而且順序很重要。每條需求都要有負責人的名字；越是聰明人訂的需求越危險，因為沒人敢質疑。", d:"挑一條你工作中「本來就是這樣」的規定：找出是誰、為什麼訂的，它今天還成立嗎？"}},
+   {at:"pantry", npc:["技師 Rico","產線技師"], title:"14 個零件",
+    ctx:"技師抱怨你的組件有 14 個零件，組裝一次要 6 小時。主管給你一週改善。",
+    choices:[
+     {r:"best", t:"先刪：逐個問「拿掉會怎樣」，刪到 8 個，其中 1 個後來發現必須加回來。", fx:{i:14,p:10,c:6}, cp:{def:5,tech:4}, out:"組裝時間降到 2.5 小時。主管說：「如果你沒有加回至少 10%，就代表刪得不夠多。」你剛好加回一個。"},
+     {r:"ok", t:"優化每個零件：更輕、更便宜。", fx:{i:6,p:6,c:4,e:-6}, cp:{tech:2}, out:"每個零件都更好了，但其中 4 個根本不該存在。最常見的錯誤，是優化一個不該存在的東西。"},
+     {r:"bad", t:"設計一個自動化治具，加速組裝。", fx:{i:2,p:4,e:-12}, cp:{pri:-3}, out:"你花了一週自動化一個 14 零件的流程。下個月有人把它刪到 8 個，治具直接報廢。"}],
+    lesson:{h:"最好的零件是沒有零件", b:"五步驟的順序就是重點：先質疑、再刪除，最後才是優化、加速、自動化。在錯的東西上用對的方法，只會更快地錯。", d:"看你最常做的一個流程：哪一步拿掉也不會怎樣？先刪掉它一週試試看。"}},
+   {at:"special", npc:["Tomás","測試工程師"], title:"測試台上的破裂",
+    ctx:"你的壓力容器在測試台上加壓到 92% 時破裂。測試區事先清空，沒有人受傷。下一艘載具 3 週後就要用這個零件。",
+    choices:[
+     {r:"best", t:"48 小時內：看高速攝影和感測器資料找根因（焊道熱影響區），改設計、多裝 6 個應變計，再測一次。", fx:{i:14,c:10,p:10,e:-14}, cp:{tech:6,grit:5,own:3}, out:"第二次測試到 118% 才破，而且破在預測的位置。新增的感測器數據也校準了分析模型。用測試學，比在會議室裡猜快得多。"},
+     {r:"ok", t:"暫停一切，花 3 週寫完整的失效分析報告再測。", fx:{c:6,t:2,p:-4}, cp:{tech:2,pri:-3}, out:"報告很完整，但錯過下一艘載具的時程。分析很重要，但在能便宜測試的地方，測試就是最好的分析。"},
+     {r:"bad", t:"判定是供應商材料問題，請採購處理。", fx:{t:-8,i:-2}, cp:{own:-5}, out:"供應商送來材料認證，完全合格。真正的問題在你的焊接設計。推卸是本能，但根因不會因此消失。"}],
+    lesson:{h:"快速失敗，並從失敗中榨出資訊", b:"SpaceX 以快速迭代的硬體測試著稱：在安全受控的環境下刻意測到極限。重點不是「失敗很酷」，而是每次失敗都要帶回可量測的資訊，讓下一次更好。", d:"下次失敗後 48 小時內寫下：發生什麼、根因假設、下次測試要多量測什麼。"}},
+   {at:"meeting", npc:["Ana","品質工程"], title:"發射窗口 vs 焊道異常",
+    ctx:"距離預定發射 5 天。你在飛行載具的 X 光片上看到一個模糊的焊道訊號，可能是缺陷，也可能只是影像雜訊。全廠都在趕時程。",
+    choices:[
+     {r:"best", t:"立刻提出，附上影像與位置；同時提出「4 小時內補拍不同角度 X 光，加超音波檢測」的快速驗證方案。", fx:{i:12,t:10,v:6}, cp:{own:6,comm:4,tech:3}, out:"補檢 3 小時完成：真的是微裂紋。修補只花一個班次，發射如期。品質主管說：「帶著解法來的警報，是最好的警報。」"},
+     {r:"bad", t:"應該只是雜訊，不想當拖累時程的人。", fx:{p:4,t:-4}, cp:{own:-6}, out:"你這週都睡不好。速度文化不代表忽略風險；真正的速度，是用最快的方式消除不確定。"},
+     {r:"ok", t:"在全廠群組要求立刻停工。", fx:{v:6,t:-4,e:-6}, cp:{comm:-3,own:2}, out:"提出是對的，但沒有資料和方案的停工要求引起一陣混亂。最後還是靠補檢解決，只是多花了一天。"}],
+    lesson:{h:"速度不等於忽略風險", b:"最快的組織不是從不停下來的組織，而是能用最短時間把「不確定」變成「確定」的組織。提出風險時一起提出最快的驗證方法，你就從阻力變成加速器。", d:"下次發現風險，先想好一個 24 小時內能驗證的方法，再去找決策者。"}},
+   {at:"manager", npc:["主管 Kai","責任工程師"], title:"Surge 衝刺",
+    ctx:"發射前兩週進入 surge：大家每週工作 80 小時以上。你的精力有限，工作卻沒有上限。",
+    choices:[
+     {r:"best", t:"找出關鍵路徑上屬於你的 3 件事全力衝；非關鍵的交接或延後；堅持每晚睡 6 小時以上。", fx:{i:12,p:12,e:-15}, cp:{pri:7,grit:5}, out:"你的 3 件事全部準時。一位連熬 5 天的同事在最後一晚接錯一條感測器線，被你在檢查清單上抓到。"},
+     {r:"ok", t:"全部都衝，不睡也要做完。", fx:{i:8,p:14,e:-35,c:2}, cp:{grit:3,pri:-2}, out:"產出很多，但第 10 天你輸入錯一個扭力值，還好被品質抓到。疲勞是安全問題，不是意志力問題。"},
+     {r:"bad", t:"拒絕加班，維持正常工時。", fx:{e:10,t:-10,i:-4}, cp:{grit:-3}, out:"你的界線很清楚，但團隊最需要你的時候你不在。這種文化不適合每個人，知道這點本身也是收穫。"}],
+    lesson:{h:"衝刺時先找關鍵路徑", b:"在高強度文化裡，真正的高手不是工時最長的人，而是知道哪些事決定整體時程的人。關鍵路徑上的 1 小時，等於整個專案的 1 小時；其他地方的 1 小時，可能什麼都不會改變。", d:"畫出你目前專案的關鍵路徑：哪一件事延遲一天，整個專案就延遲一天？那件事就是你這週的第一優先。"}},
+   {at:"meeting", npc:["主管 Kai","責任工程師"], title:"發射之後",
+    ctx:function(G){ const ok = G.S.p >= 70 && G.S.c >= 50; return "載具升空。" + (ok ? "飛行達成主要測試目標，你的子系統全程正常。" : "飛行達成部分目標，但在上升段後期失去遙測。") + "72 小時後要開飛行後檢討，你的子系統數據顯示一個非預期的振動峰值。"; },
+    choices:[
+     {r:"best", t:"主動整理數據：哪些如預期、哪些不如預期，提出下一艘載具前要做的 3 項修改。", fx:{i:14,t:8,v:8}, cp:{own:6,tech:3,comm:3}, out:"你的報告成為檢討會的參考範本，三項修改中有兩項排進下一艘。每次飛行都是測試，檢討才讓它值回票價。"},
+     {r:"ok", t:"先慶祝，下週再說。", fx:{e:15,t:-2}, cp:{grit:1,pri:-2}, out:"慶祝是應該的。但你回來時修改清單已經定了，你子系統的振動問題排在最後。"},
+     {r:"bad", t:"在檢討會上強調振動不是你的子系統造成的。", fx:{t:-8,v:2}, cp:{own:-4,comm:-2}, out:"也許你是對的，但這場會議的目的不是分配責任，而是讓下一艘飛得更好。"}],
+    lesson:{h:"每次發射都是一次測試", b:"迭代式開發把每次飛行當成取得數據的手段。好的檢討會快速、具體、以數據為準、不追究個人責任。主動帶著數據與提案來的人，會被交付更大的責任。", d:"完成任何專案後，花 30 分鐘寫下：如預期的、不如預期的、下次要改的三件事。"}}
+  ]}
+};
+
+const SIDE_EVENTS = [
+ {id:"cal", npc:["行事曆","系統通知"], title:"會議邀請轟炸",
+  ctx:"你的行事曆本週被塞進 11 場會議，其中 5 場沒有議程。",
+  choices:[
+   {r:"best", t:"回覆沒議程的會議：「這場需要我做什麼決定或提供什麼資訊？」其餘照常；另外排兩段 2 小時專注時間。", fx:{e:8,p:4,t:1}, cp:{pri:4}, out:"3 場會議的發起人回覆「其實你不用來，我把結論寄給你」。你多出 6 小時。"},
+   {r:"ok", t:"全部接受，表現積極。", fx:{e:-12,v:3}, cp:{pri:-2}, out:"你出現在每一場會議，卻沒有時間做真正的工作。"},
+   {r:"bad", t:"全部拒絕。", fx:{e:10,t:-6}, cp:{comm:-2}, out:"其中一場是決定你專案範圍的會。下次邀請你的人變少了。"}],
+  lesson:{h:"保護你的行事曆", b:"大公司的預設是多開會。會議是共享成本：5 個人開 1 小時就是 5 小時。對沒有議程的會議，你有權先問清楚目的。", d:"這週替自己排兩段 2 小時的專注時間，並對一場沒議程的會議問清楚目的。"}},
+ {id:"help", npc:["隔壁組同事","工程師"], title:"同事來求助",
+  ctx:"隔壁組同事卡在一個你半年前解過的問題，跑來問你。你手上的工作正在關鍵時刻。",
+  choices:[
+   {r:"best", t:"花 15 分鐘講重點，把解法寫成一篇內部 wiki，把連結給他。", fx:{t:8,c:2,v:3,e:-4}, cp:{comm:3,own:2}, out:"一個月後，那篇 wiki 被 40 個人看過。有人在週報裡謝謝你。"},
+   {r:"ok", t:"放下手邊工作，陪他除錯一下午。", fx:{t:10,e:-12,p:-4}, cp:{pri:-2}, out:"他很感激，但你自己的進度延後了一天。"},
+   {r:"bad", t:"說你很忙，請他自己查。", fx:{t:-6}, cp:{comm:-2}, out:"他花了兩天才解決，之後跨組合作時都繞過你。"}],
+  lesson:{h:"當乘數，不當救火隊", b:"在大公司，你影響力的上限取決於能讓多少人變強。寫下來的解法能幫 100 個人，陪一個人除錯只能幫一個。", d:"把你最近解決的一個問題寫成 5 行筆記，分享給可能遇到的人。"}},
+ {id:"elev", npc:["Skip-level 主管","你主管的主管"], title:"電梯裡的「最近在忙什麼？」",
+  ctx:"電梯裡碰到你主管的主管，她問：「最近在忙什麼？」電梯還有 30 秒到。",
+  choices:[
+   {r:"best", t:"一句目標、一個進展數字、一個需要的支援：「在做 X，已經改善 Y%，下個月需要 Z 團隊配合。」", fx:{v:10,t:4}, cp:{comm:5}, out:"她說：「Z 團隊那邊我幫你打聲招呼。」30 秒換來一個你自己要花兩週才能談成的資源。"},
+   {r:"ok", t:"「還不錯，都在進度上！」", fx:{v:1}, cp:{}, out:"禮貌、安全，但她走出電梯就忘了。"},
+   {r:"bad", t:"從技術細節講起，電梯到了還沒講到重點。", fx:{v:2,t:-2}, cp:{comm:-2}, out:"她客氣地點頭離開。高層記住的是「講不清楚」，而不是你的技術。"}],
+  lesson:{h:"電梯簡報：結論先行", b:"高層的注意力是最稀缺的資源。先講結論，再講支撐，最後講你需要什麼。先準備好 30 秒版本，機會出現時就不用想。", d:"寫下你目前工作的 30 秒版本：目標、進展（含數字）、需要的幫助。念出來並計時。"}},
+ {id:"credit", npc:["跨組會議","20 人"], title:"功勞被拿走",
+  ctx:"跨組會議上，另一組的人把你做的分析當成他們的成果在報告。",
+  choices:[
+   {r:"best", t:"會後私下釐清；之後在週報和專案文件中清楚標註每個人的貢獻。", fx:{t:4,v:6}, cp:{comm:4,grit:2}, out:"對方道歉，說是誤會。之後你的每份分析都署名並放在公開頻道，類似的事沒再發生。"},
+   {r:"ok", t:"算了，好的工作自然會被看見。", fx:{v:-4}, cp:{grit:1}, out:"在大公司，好的工作不會自己被看見，除非它被寫下來。"},
+   {r:"bad", t:"當場打斷：「這是我做的。」", fx:{v:4,t:-8}, cp:{comm:-3}, out:"你說的是事實，但全場記住的是衝突。"}],
+  lesson:{h:"讓工作留下署名", b:"功勞被拿走，根本原因通常是工作沒被寫下、沒有清楚署名。最好的防禦是持續、公開、書面地分享進展，而不是事後爭辯。", d:"下一份分析在開頭加上作者、日期與版本，分享到公開頻道而不是私訊。"}},
+ {id:"night", npc:["主管","晚上 11:04"], title:"深夜訊息",
+  ctx:"晚上 11 點，主管傳來：「有空看一下這個嗎？」看起來不是緊急事件。",
+  choices:[
+   {r:"best", t:"明早第一件事處理，並先回一句預計完成時間；在下次 1:1 釐清哪些事需要即時回應。", fx:{e:6,t:4}, cp:{comm:3,grit:2}, out:"主管說：「抱歉，我只是想到就丟。不急的我會標註。」之後的深夜訊息少了一半。"},
+   {r:"ok", t:"立刻爬起來處理。", fx:{t:3,e:-10}, cp:{grit:-1}, out:"主管很開心，但這也讓他以為你隨時都在線上。"},
+   {r:"bad", t:"已讀不回，隔天也忘了。", fx:{t:-8}, cp:{own:-3}, out:"三天後主管再問一次，語氣已經不太一樣。"}],
+  lesson:{h:"把期望說清楚", b:"很多加班來自沒說出口的期望。主管想到就丟訊息，不一定要你立刻回。直接問清楚什麼算緊急，比每天猜測健康得多。", d:"下一次 1:1 時問：「哪些事需要我當天回應？哪些可以隔天？」"}}
+];
+
+const BASE_STATIONS = [
+ {id:"desk", x:0, z:5},
+ {id:"manager", x:-10, z:-5},
+ {id:"meeting", x:0, z:-7},
+ {id:"pantry", x:10, z:-5},
+ {id:"lounge", x:-10, z:6},
+ {id:"special", x:10, z:6}
+];
+const ACTIONS = {
+ desk:{label:"深度工作", desc:"戴上耳機，推進你的專案。", fx:{p:10,c:3,e:-14}, cp:{tech:1}},
+ manager:{label:"1:1 對談", desc:"同步進度、要回饋，主管會給你一個建議。", fx:{t:4,v:5,e:-4}, cp:{comm:1}},
+ meeting:{label:"參加跨組同步", desc:"了解其他團隊在做什麼，也讓他們知道你。", fx:{v:4,t:2,e:-6}, cp:{def:1}},
+ pantry:{label:"喝杯咖啡聊聊", desc:"跟同事建立關係，順便聽到一些消息。", fx:{t:6,e:5}, cp:{comm:1}},
+ lounge:{label:"休息充電", desc:"散步、健身或小睡，恢復精力。", fx:{e:28}, cp:{grit:1}}
+};
+
+const TIER_LINE = [
+ "你被提名為下一個重點專案的技術負責人。校準會議上沒有人提出異議。",
+ "你在校準會議中被多位主管點名。下半年你會拿到更大的範圍。",
+ "你的影響清楚、合作順暢，是團隊信任的核心成員。",
+ "你穩定交付、沒有讓人擔心。要往上走，需要更清楚、更大的影響。",
+ "有亮點，但影響不夠清楚，或在關鍵時刻的判斷讓人有疑慮。",
+ "這個週期很辛苦。好消息是：每個失分點都對應一個學得會的技能。"
+];
+const TIERS = [86,74,62,50,38,0];
+
+/* ---------------- persistence (per-viewer convenience) ---------------- */
+const SAVE_KEY = "dachang6w.v1";
+function loadSave(){ try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {best:{}, lessons:{}}; } catch(e){ return {best:{}, lessons:{}}; } }
+function writeSave(s){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch(e){} }
+let SAVE = loadSave();
+if (!SAVE.best) SAVE.best = {}; if (!SAVE.lessons) SAVE.lessons = {};
+
+/* =====================================================================
+   3D WORLD
+   ===================================================================== */
+const stage = $("#stage");
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 220);
+const clock = new THREE.Clock();
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+
+let world = null, floor = null, player = null, stationObjs = [], obstacles = [], marker = null, animated = [];
+let mode = "title"; // title | play
+let target = null, pendingStation = null, nearStation = null;
+const keys = {};
+
+const mat = (color, o={}) => new THREE.MeshStandardMaterial(Object.assign({color, roughness:.75, metalness:.05}, o));
+function box(w,h,d,m,x,y,z){ const g = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); g.position.set(x,y,z); g.castShadow = true; g.receiveShadow = true; world.add(g); return g; }
+function cyl(rt,rb,h,m,x,y,z,seg=20){ const g = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), m); g.position.set(x,y,z); g.castShadow = true; g.receiveShadow = true; world.add(g); return g; }
+
+function textTexture(lines, opt={}){
+  const w = opt.w || 512, h = opt.h || 128, c = document.createElement("canvas");
+  c.width = w; c.height = h; const x = c.getContext("2d");
+  if (opt.bg){ x.fillStyle = opt.bg; roundRect(x, 4, 4, w-8, h-8, opt.r || 22); x.fill(); }
+  if (opt.stroke){ x.strokeStyle = opt.stroke; x.lineWidth = 4; roundRect(x, 4, 4, w-8, h-8, opt.r || 22); x.stroke(); }
+  x.textAlign = "center"; x.textBaseline = "middle";
+  lines.forEach((ln, i) => { x.fillStyle = ln.color || "#fff"; x.font = ln.font; x.fillText(ln.text, w/2, ln.y != null ? ln.y : h/2); });
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+}
+function roundRect(x, X, Y, W, H, r){ x.beginPath(); x.moveTo(X+r,Y); x.arcTo(X+W,Y,X+W,Y+H,r); x.arcTo(X+W,Y+H,X,Y+H,r); x.arcTo(X,Y+H,X,Y,r); x.arcTo(X,Y,X+W,Y,r); x.closePath(); }
+function label(name, sub, accent){
+  const lines = sub ? [{text:name, font:"700 46px 'Noto Sans TC', sans-serif", y:52},{text:sub, font:"500 28px 'Noto Sans TC', sans-serif", color:"#a9b3be", y:96}] : [{text:name, font:"700 48px 'Noto Sans TC', sans-serif"}];
+  const t = textTexture(lines, {bg:"rgba(12,14,17,.82)", stroke:accent, w:512, h:sub?136:104});
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map:t, depthTest:false, transparent:true}));
+  s.scale.set(3.3, sub ? 0.88 : 0.67, 1); s.renderOrder = 10; return s;
+}
+function person(shirt, opts={}){
+  const g = new THREE.Group();
+  const skin = mat(opts.skin || pick([0xe2b48f,0xc68b62,0x8d5a3b,0xf1cfb0]));
+  const pants = mat(0x2a2f38);
+  const l1 = new THREE.Mesh(new THREE.BoxGeometry(.2,.8,.24), pants); l1.position.set(-.13,.4,0);
+  const l2 = l1.clone(); l2.position.x = .13;
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.3,.34,.8,16), mat(shirt)); body.position.y = 1.2;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.24,20,16), skin); head.position.y = 1.86;
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(.25,20,12,0,Math.PI*2,0,Math.PI/2.2), mat(opts.hair || 0x1d1a17)); hair.position.y = 1.9;
+  [l1,l2,body,head,hair].forEach(m => { m.castShadow = true; g.add(m); });
+  g.userData.legs = [l1,l2];
+  return g;
+}
+function plant(x,z){ cyl(.28,.22,.5,mat(0x5b4a3a),x,.25,z); const f = new THREE.Mesh(new THREE.IcosahedronGeometry(.55,0), mat(0x3f8f4f,{flatShading:true})); f.position.set(x,.95,z); f.castShadow = true; world.add(f); obstacles.push({x,z,r:.5}); }
+function workDesk(x,z,theme,rot=0){
+  const g = new THREE.Group();
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.7,.08,.85), mat(theme.desk)); top.position.y = .76;
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.5,.72,.1), mat(theme.deskBase)); base.position.set(0,.38,-.3);
+  const mon = new THREE.Mesh(new THREE.BoxGeometry(.9,.52,.05), mat(0x111317)); mon.position.set(0,1.18,-.25);
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(.84,.46), new THREE.MeshBasicMaterial({color:theme.screen})); scr.position.set(0,1.18,-.22);
+  const chair = new THREE.Mesh(new THREE.BoxGeometry(.5,.5,.5), mat(theme.chair)); chair.position.set(0,.45,.55);
+  [top,base,mon,chair].forEach(m => { m.castShadow = true; m.receiveShadow = true; g.add(m); });
+  g.add(scr);
+  g.position.set(x,0,z); g.rotation.y = rot; world.add(g);
+  obstacles.push({x,z,r:.95});
+  return g;
+}
+function poster(text, x, y, z, theme, rotY=0, w=5){
+  const t = textTexture([{text, font:"700 64px 'Chakra Petch', sans-serif", color:theme.posterInk}], {w:1024, h:200, bg:theme.posterBg, r:10});
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w*200/1024), new THREE.MeshBasicMaterial({map:t, transparent:true}));
+  m.position.set(x,y,z); m.rotation.y = rotY; world.add(m);
+}
+
+const THEMES = {
+ nvidia:{bg:0x0b0d0f, fog:0x0b0d0f, floor:0x15181b, wall:0x1c2125, grid:0x76b900, accent:0x76b900, desk:0x2b3036, deskBase:0x1b1f23, screen:0x6fae12, chair:0x30363c, sky:0x9fb8a0, ground:0x101214, hemi:.55, sun:.9, posterBg:"rgba(118,185,0,.12)", posterInk:"#8fd11a", shirt:0x76b900},
+ meta:{bg:0xdfe7f2, fog:0xdfe7f2, floor:0xe8edf4, wall:0xf7f9fc, grid:0x2d7bff, accent:0x2d7bff, desk:0xf2f2ee, deskBase:0xc9d2de, screen:0x5a9bff, chair:0x2d7bff, sky:0xffffff, ground:0xb8c3d2, hemi:.95, sun:1.0, posterBg:"rgba(45,123,255,.95)", posterInk:"#ffffff", shirt:0x2d7bff},
+ spacex:{bg:0x0e1013, fog:0x0e1013, floor:0x2a2d31, wall:0x34393f, grid:0xff7a3d, accent:0xff7a3d, desk:0x4a5058, deskBase:0x2e3237, screen:0xd9e2ec, chair:0x1d2024, sky:0xc8d2de, ground:0x1a1c1f, hemi:.6, sun:1.05, posterBg:"rgba(232,238,245,.08)", posterInk:"#e8eef5", shirt:0x22262b}
+};
+
+function disposeWorld(){
+  if (!world) return;
+  world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material){ const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); } });
+  scene.remove(world); world = null;
+}
+
+function buildWorld(cid){
+  disposeWorld();
+  const C = COMPANIES[cid], T = THEMES[cid];
+  world = new THREE.Group(); scene.add(world);
+  stationObjs = []; obstacles = []; animated = [];
+  scene.background = new THREE.Color(T.bg);
+  scene.fog = new THREE.Fog(T.fog, 34, 70);
+
+  const hemi = new THREE.HemisphereLight(T.sky, T.ground, T.hemi); world.add(hemi);
+  const sun = new THREE.DirectionalLight(0xffffff, T.sun); sun.position.set(-10,20,12); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048,2048); const sc = sun.shadow.camera; sc.left=-24; sc.right=24; sc.top=20; sc.bottom=-20; sc.near=1; sc.far=60; sun.shadow.bias = -0.0005;
+  world.add(sun);
+
+  floor = new THREE.Mesh(new THREE.PlaneGeometry(36,28), mat(T.floor,{roughness:.9}));
+  floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; floor.name = "floor"; world.add(floor);
+  const grid = new THREE.GridHelper(36, 18, T.grid, T.grid); grid.material.transparent = true; grid.material.opacity = cid === "meta" ? .12 : .08; grid.position.y = .01; grid.scale.z = 28/36; world.add(grid);
+
+  const wm = mat(T.wall);
+  box(36,3.4,.3,wm,0,1.7,-14);
+  box(.3,3.4,28,wm,-18,1.7,0);
+  box(.3,3.4,28,wm,18,1.7,0);
+  box(36,.4,.3,wm,0,.2,14);
+
+  C.posters.forEach((p,i) => poster(p, -11 + i*11, 2.3, -13.84, T, 0, 6));
+
+  // open-plan desk pods
+  [[-5,1],[-2.6,1],[2.6,1],[5,1],[-5,10],[-2.6,10],[2.6,10],[5,10]].forEach(([x,z]) => {
+    workDesk(x,z,T, z > 5 ? Math.PI : 0);
+    if (Math.random() < .6){ const p = person(pick([0x6b7280,0x8b5cf6,0x0ea5e9,0xf97316,0x10b981,0xe11d48]), {}); p.position.set(x, 0, z + (z>5?-.55:.55)); p.rotation.y = z>5?0:Math.PI; p.scale.setScalar(.95); world.add(p); }
+  });
+  [[-16.5,-12.5],[16.5,-12.5],[-16.5,12.5],[16.5,12.5],[-4,-12.8],[4,-12.8]].forEach(([x,z]) => plant(x,z));
+
+  // ---- stations
+  BASE_STATIONS.forEach(b => {
+    const [nm, sub] = C.st[b.id];
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.25,1.5,56), new THREE.MeshBasicMaterial({color:T.accent, transparent:true, opacity:.55, side:THREE.DoubleSide}));
+    ring.rotation.x = -Math.PI/2; ring.position.set(b.x,.03,b.z); world.add(ring);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(1.25,48), new THREE.MeshBasicMaterial({color:T.accent, transparent:true, opacity:.08}));
+    disc.rotation.x = -Math.PI/2; disc.position.set(b.x,.02,b.z); world.add(disc);
+    const lb = label(nm, sub, "#" + new THREE.Color(T.accent).getHexString()); lb.position.set(b.x, 3.2, b.z - 1.2); world.add(lb);
+    const hit = new THREE.Mesh(new THREE.CylinderGeometry(1.7,1.7,3.2,12), new THREE.MeshBasicMaterial({visible:false}));
+    hit.position.set(b.x,1.6,b.z - .6); hit.userData.station = b.id; world.add(hit);
+    stationObjs.push({id:b.id, x:b.x, z:b.z, ring, disc, hit, label:lb, npc:null});
+  });
+  const S = id => stationObjs.find(s => s.id === id);
+
+  // desk (yours)
+  workDesk(0, 3.6, Object.assign({}, T, {screen:T.accent}));
+  // manager office
+  box(2.2,.08,1,mat(T.desk),-10,.76,-7); box(2,.72,.1,mat(T.deskBase),-10,.38,-7.4);
+  const mgr = person(cid==="meta"?0x334155:cid==="spacex"?0x111418:0x2b3036,{hair:0x2a2018}); mgr.position.set(-10,0,-7.9); world.add(mgr); S("manager").npc = mgr; obstacles.push({x:-10,z:-7.2,r:1.2});
+  box(.1,2.4,4,mat(T.wall,{transparent:true,opacity:.35}),-7.6,1.2,-7);
+  // meeting room
+  box(4.6,.1,1.9,mat(T.desk),0,.78,-10); box(.3,.75,.3,mat(T.deskBase),-1.8,.38,-10); box(.3,.75,.3,mat(T.deskBase),1.8,.38,-10);
+  [-1.5,0,1.5].forEach(x => { box(.5,.5,.5,mat(T.chair),x,.45,-11.4); });
+  const scrM = new THREE.Mesh(new THREE.PlaneGeometry(4.5,2.3), new THREE.MeshBasicMaterial({color:T.accent, transparent:true, opacity:.25})); scrM.position.set(0,2.1,-13.8); world.add(scrM);
+  const mtgNpc = person(0x64748b); mtgNpc.position.set(-1.5,0,-8.6); mtgNpc.rotation.y = Math.PI; world.add(mtgNpc); S("meeting").npc = mtgNpc;
+  obstacles.push({x:0,z:-10,r:2.3});
+  // pantry
+  box(3.2,1,.8,mat(T.deskBase),10,.5,-7.4); box(.5,.6,.45,mat(0x2a2a2a),9.2,1.3,-7.4);
+  cyl(.06,.05,.12,mat(0xffffff),10.2,1.06,-7.3);
+  const pNpc = person(pick([0xf59e0b,0x14b8a6,0xa855f7])); pNpc.position.set(10.8,0,-6.5); pNpc.rotation.y = Math.PI*1.1; world.add(pNpc); S("pantry").npc = pNpc;
+  obstacles.push({x:10,z:-7.4,r:1.6});
+  // lounge
+  if (cid === "meta"){
+    [[-11,7.8,0xff6b6b],[-9.2,8,0xffd166],[-12.3,6.4,0x06d6a0]].forEach(([x,z,c]) => { const b = new THREE.Mesh(new THREE.SphereGeometry(.6,20,14), mat(c)); b.scale.y = .6; b.position.set(x,.36,z); b.castShadow = true; world.add(b); obstacles.push({x,z,r:.6}); });
+  } else {
+    box(3,.45,1,mat(cid==="nvidia"?0x2f3a2a:0x3a3f46),-10,.35,8.2); box(3,.7,.25,mat(cid==="nvidia"?0x2f3a2a:0x3a3f46),-10,.8,8.7); obstacles.push({x:-10,z:8.4,r:1.6});
+  }
+  plant(-12.6,8.6);
+
+  // special station
+  if (cid === "nvidia"){
+    [8.4,9.6,10.8,12].forEach((x,i) => {
+      box(1,2.5,1,mat(0x15181b,{metalness:.4,roughness:.4}),x,1.25,8.6);
+      for (let k=0;k<5;k++){ const led = new THREE.Mesh(new THREE.BoxGeometry(.8,.04,.02), new THREE.MeshBasicMaterial({color:0x76b900})); led.position.set(x,.5+k*.42,8.09); world.add(led); animated.push({o:led, kind:"blink", ph:i*1.3+k}); }
+    });
+    obstacles.push({x:10.2,z:8.6,r:2.2});
+    // triangular skylight panels
+    for (let i=0;i<14;i++){
+      const tri = new THREE.Mesh(new THREE.CircleGeometry(1.6,3), new THREE.MeshBasicMaterial({color:0x76b900, transparent:true, opacity:.10, side:THREE.DoubleSide}));
+      tri.position.set(-14 + (i%7)*4.6, 7 + (i%2), -8 + Math.floor(i/7)*10); tri.rotation.x = Math.PI/2; tri.rotation.z = i*0.7; world.add(tri); animated.push({o:tri, kind:"spin", sp:.05 + (i%3)*.03});
+    }
+  } else if (cid === "meta"){
+    const c = document.createElement("canvas"); c.width = 640; c.height = 360; const x = c.getContext("2d");
+    x.fillStyle = "#0b1b3a"; x.fillRect(0,0,640,360);
+    x.strokeStyle = "rgba(255,255,255,.12)"; for (let i=1;i<6;i++){ x.beginPath(); x.moveTo(40,i*55); x.lineTo(620,i*55); x.stroke(); }
+    x.strokeStyle = "#5a9bff"; x.lineWidth = 5; x.beginPath(); for (let i=0;i<=20;i++){ const yy = 260 - i*7 - Math.sin(i*.9)*18; i ? x.lineTo(40+i*29, yy) : x.moveTo(40, yy); } x.stroke();
+    x.strokeStyle = "#ff9f43"; x.lineWidth = 3; x.beginPath(); for (let i=0;i<=20;i++){ const yy = 200 + Math.sin(i*.6)*10 - (i>12?(i-12)*6:0); i ? x.lineTo(40+i*29, yy) : x.moveTo(40, yy); } x.stroke();
+    x.fillStyle = "#fff"; x.font = "700 26px 'Chakra Petch', sans-serif"; x.fillText("WATCH TIME  +0.8%", 44, 40); x.fillStyle = "#ff9f43"; x.fillText("REPORTS +3.0%", 400, 40);
+    const tx = new THREE.CanvasTexture(c); tx.encoding = THREE.sRGBEncoding;
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(4.2,2.36), new THREE.MeshBasicMaterial({map:tx})); scr.position.set(10,2.1,8.62); scr.rotation.y = Math.PI; world.add(scr);
+    box(4.4,2.56,.12,mat(0x1d2433),10,2.1,8.7); box(.2,1,.2,mat(0x9aa7b8),10,.5,8.7);
+    obstacles.push({x:10,z:8.7,r:2});
+    [[-17.8,0,Math.PI/2],[17.8,0,-Math.PI/2]].forEach(([x,z,r],i) => { const colors = [0xff6b6b,0xffd166,0x06d6a0,0x118ab2]; for (let k=0;k<3;k++){ const m = new THREE.Mesh(new THREE.PlaneGeometry(2.2,1.4), new THREE.MeshBasicMaterial({color:colors[(k+i)%4]})); m.position.set(x+(i?-.02:.02), 2.2, -6 + k*5); m.rotation.y = r; world.add(m); } });
+  } else {
+    // test stand: frame + tank
+    const steel = mat(0x8a929c,{metalness:.6,roughness:.35});
+    [[8.6,7.4],[11.4,7.4],[8.6,9.6],[11.4,9.6]].forEach(([x,z]) => box(.18,4,.18,steel,x,2,z));
+    box(3,.18,2.4,steel,10,4,8.5);
+    cyl(.8,.8,2.6,mat(0xd5dbe2,{metalness:.8,roughness:.25}),10,1.5,8.5,28);
+    obstacles.push({x:10,z:8.5,r:1.9});
+    // Starship-like stack in the hall corner
+    const ss = mat(0xc9ced6,{metalness:.85,roughness:.28});
+    cyl(1.45,1.45,15,ss,13.2,7.5,-10.2,40);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(1.45,4,40), ss); nose.position.set(13.2,17,-10.2); nose.castShadow = true; world.add(nose);
+    [[0,1],[Math.PI,1]].forEach(([r]) => { const f = new THREE.Mesh(new THREE.BoxGeometry(.12,2.6,1.4), ss); f.position.set(13.2 + Math.cos(r)*1.6, 13.5, -10.2 + Math.sin(r)*1.6); f.castShadow = true; world.add(f); });
+    cyl(2.2,2.2,.3,mat(0x3a3f45),13.2,.15,-10.2);
+    obstacles.push({x:13.2,z:-10.2,r:2.3});
+    const glow = new THREE.PointLight(0xff7a3d, .8, 14); glow.position.set(10,1,8.5); world.add(glow); animated.push({o:glow, kind:"flicker"});
+  }
+  const spNpc = person(cid==="spacex"?0x22262b:T.shirt, {hair:0x3b2a20}); spNpc.position.set(cid==="meta"?11.4:8.2, 0, cid==="meta"?7.6:6.9); spNpc.rotation.y = -Math.PI/2.5; world.add(spNpc); S("special").npc = spNpc;
+
+  // main-event marker
+  const mt = textTexture([{text:"!", font:"900 150px 'Noto Sans TC', sans-serif", color:"#1a1300"}], {w:192, h:192, bg:"#ffcc4d", r:96});
+  marker = new THREE.Sprite(new THREE.SpriteMaterial({map:mt, depthTest:false, transparent:true})); marker.scale.set(.9,.9,1); marker.renderOrder = 11; marker.visible = false; world.add(marker);
+
+  // player
+  player = person(T.shirt === 0x22262b ? 0xff7a3d : (cid==="meta"?0xffffff:0x0f1a05), {skin:0xe8c3a0, hair:0x161311});
+  const halo = new THREE.Mesh(new THREE.RingGeometry(.42,.55,32), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.8}));
+  halo.rotation.x = -Math.PI/2; halo.position.y = .03; player.add(halo);
+  player.position.set(0,0,1.7); player.rotation.y = Math.PI;
+  world.add(player);
+  target = null; pendingStation = null;
+}
+
+function resize(){ const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+window.addEventListener("resize", resize);
+
+/* ---------------- input ---------------- */
+window.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase(); keys[k] = true;
+  if (mode !== "play") return;
+  if (!$("#modal").hidden){ if (k === "escape" && actionOpen) closeModal(); return; }
+  if ((k === "e" || k === "enter" || k === " ") && nearStation){ e.preventDefault(); openStation(nearStation); return; }
+  if (["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k)) e.preventDefault();
+  if (["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k)){ target = null; pendingStation = null; }
+});
+window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
+renderer.domElement.addEventListener("pointerdown", e => {
+  if (mode !== "play" || !$("#modal").hidden) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(stationObjs.map(s => s.hit), false);
+  if (hits.length){ const st = stationObjs.find(s => s.id === hits[0].object.userData.station); target = new THREE.Vector3(st.x, 0, st.z); pendingStation = st.id; return; }
+  const f = raycaster.intersectObject(floor, false);
+  if (f.length){ target = f[0].point.clone(); target.y = 0; pendingStation = null; }
+});
+
+/* ---------------- loop ---------------- */
+const camPos = new THREE.Vector3(0, 16, 18), camLook = new THREE.Vector3();
+let titleAngle = 0;
+function tick(){
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  if (world){
+    animated.forEach(a => {
+      if (a.kind === "blink") a.o.material.color.setHex(Math.sin(t*3 + a.ph) > .2 ? 0x76b900 : 0x2b4a06);
+      else if (a.kind === "spin") a.o.rotation.z += a.sp * dt;
+      else if (a.kind === "flicker") a.o.intensity = .6 + Math.sin(t*9)*.15 + Math.random()*.1;
+    });
+    stationObjs.forEach(s => { if (s.npc) s.npc.position.y = Math.abs(Math.sin(t*1.6 + s.x)) * .03; });
+  }
+  if (mode === "title" && world){
+    titleAngle += dt * .08;
+    camera.position.set(Math.sin(titleAngle)*24, 15, Math.cos(titleAngle)*20);
+    camera.lookAt(0, 0, -1);
+  } else if (mode === "play" && player){
+    updatePlayer(dt, t);
+    camPos.lerp(new THREE.Vector3(player.position.x * .85, 16.5, player.position.z * .85 + 14.5), 1 - Math.pow(.002, dt));
+    camera.position.copy(camPos);
+    camLook.lerp(new THREE.Vector3(player.position.x, .8, player.position.z - 1.2), 1 - Math.pow(.002, dt));
+    camera.lookAt(camLook);
+    // marker + ring pulse
+    const ms = G && !G.mainDone ? stationObjs.find(s => s.id === curWeek().at) : null;
+    if (ms){ marker.visible = true; marker.position.set(ms.x, 4.3 + Math.sin(t*3)*.15, ms.z - 1.2); } else if (marker) marker.visible = false;
+    stationObjs.forEach(s => {
+      const hot = (ms && s.id === ms.id) || (nearStation && nearStation === s.id);
+      s.ring.material.opacity = hot ? .55 + Math.sin(t*5)*.3 : .4;
+      s.disc.material.opacity = nearStation === s.id ? .2 : .08;
+      s.ring.material.color.setHex(ms && s.id === ms.id ? 0xffcc4d : THEMES[G.cid].accent);
+    });
+  }
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+
+function updatePlayer(dt, t){
+  const modalOpen = !$("#modal").hidden;
+  let dx = 0, dz = 0;
+  if (!modalOpen){
+    if (keys["w"] || keys["arrowup"]) dz -= 1;
+    if (keys["s"] || keys["arrowdown"]) dz += 1;
+    if (keys["a"] || keys["arrowleft"]) dx -= 1;
+    if (keys["d"] || keys["arrowright"]) dx += 1;
+    if (!dx && !dz && target){
+      const v = target.clone().sub(player.position); v.y = 0;
+      const stopAt = pendingStation ? 0.9 : 0.08;
+      if (v.length() > stopAt){ v.normalize(); dx = v.x; dz = v.z; }
+      else { target = null; if (pendingStation){ const id = pendingStation; pendingStation = null; openStation(id); } }
+    }
+  }
+  const moving = dx || dz;
+  if (moving){
+    const len = Math.hypot(dx, dz); dx /= len; dz /= len;
+    const sp = 6.2;
+    player.position.x += dx * sp * dt; player.position.z += dz * sp * dt;
+    obstacles.forEach(o => { const ox = player.position.x - o.x, oz = player.position.z - o.z, d = Math.hypot(ox, oz), m = o.r + .35; if (d < m && d > 0.0001){ player.position.x = o.x + ox/d*m; player.position.z = o.z + oz/d*m; } });
+    player.position.x = clamp(player.position.x, -17.2, 17.2); player.position.z = clamp(player.position.z, -13.2, 13.2);
+    const want = Math.atan2(dx, dz); let diff = want - player.rotation.y; diff = Math.atan2(Math.sin(diff), Math.cos(diff)); player.rotation.y += diff * Math.min(1, dt*12);
+    const sw = Math.sin(t*12) * .35; player.userData.legs[0].rotation.x = sw; player.userData.legs[1].rotation.x = -sw;
+    player.position.y = Math.abs(Math.sin(t*12)) * .05;
+  } else { player.userData.legs.forEach(l => l.rotation.x *= .8); player.position.y *= .8; }
+  // proximity
+  let best = null, bd = 2.3;
+  stationObjs.forEach(s => { const d = Math.hypot(player.position.x - s.x, player.position.z - s.z); if (d < bd){ bd = d; best = s.id; } });
+  if (best !== nearStation){ nearStation = best; renderPrompt(); }
+}
+
+/* =====================================================================
+   GAME STATE
+   ===================================================================== */
+let G = null;
+const curCo = () => COMPANIES[G.cid];
+const curWeek = () => curCo().weeks[G.week - 1];
+
+function newGame(cid){
+  G = {cid, week:1, blocks:4, mainDone:false,
+       S:{i:10, t:30, v:10, e:80, c:30, p:0},
+       C:{def:30, pri:30, comm:30, tech:30, own:30, grit:30},
+       log:[], lessons:[], sideUsed:[], weekStart:null, burnouts:0};
+  G.C0 = Object.assign({}, G.C);
+  G.weekStart = Object.assign({}, G.S);
+}
+
+function apply(fx={}, cp={}){
+  const out = [];
+  Object.keys(fx).forEach(k => {
+    let d = fx[k];
+    if (k === "p" && d > 0 && G.S.e < 25) d = Math.round(d / 2);
+    const before = G.S[k]; G.S[k] = clamp(before + d, 0, 100);
+    const real = G.S[k] - before; if (real) out.push({k, d:real, stat:true});
+  });
+  Object.keys(cp).forEach(k => { const before = G.C[k]; G.C[k] = clamp(before + cp[k], 0, 100); const real = G.C[k] - before; if (real) out.push({k, d:real, stat:false}); });
+  renderHUD(out);
+  return out;
+}
+
+function deltaChips(list){
+  return list.map(x => {
+    const nm = x.stat ? STAT_LABEL[x.k] : COMP_LABEL[x.k];
+    const cls = x.stat ? (x.d > 0 ? "up" : "dn") : "cp";
+    return `<span class="d ${cls}">${nm} ${x.d > 0 ? "+" : ""}${x.d}</span>`;
+  }).join("");
+}
+
+/* ---------------- HUD ---------------- */
+function renderHUD(changed=[]){
+  if (!G) return;
+  const C = curCo();
+  $("#hCo").textContent = C.name; $("#hRole").textContent = C.role;
+  $("#hWeek").textContent = G.week;
+  $("#hBlocks").innerHTML = [0,1,2,3].map(i => `<i class="${i < 4 - G.blocks ? "used" : ""}"></i>`).join("");
+  const w = curWeek(), stName = C.st[w.at][0];
+  $("#hBang").className = "bang" + (G.mainDone ? " done" : "");
+  $("#hBang").textContent = G.mainDone ? "✓" : "!";
+  $("#hObj").innerHTML = G.mainDone ? `關鍵事件已處理。剩下 <b class="num">${G.blocks}</b> 個時段自由安排。` : `本週關鍵事件：「${w.title}」，到 <b>${stName}</b>。`;
+  const rows = ["i","t","v","c","e","p"].map(k => {
+    const ch = changed.find(x => x.stat && x.k === k);
+    const fl = ch ? (ch.d > 0 ? "flash-up" : "flash-dn") : "";
+    const cls = k === "e" ? "stat energy" + (G.S.e < 25 ? " low" : "") : k === "p" ? "stat prog" : "stat";
+    return `<div class="${cls}"><label>${STAT_LABEL[k]}</label><div class="bar"><i style="width:${G.S[k]}%"></i></div><span class="num ${fl}">${G.S[k]}</span></div>`;
+  }).join("");
+  $("#hStats").innerHTML = rows;
+}
+function renderPrompt(){
+  const el = $("#prompt");
+  if (mode !== "play" || !nearStation || !$("#modal").hidden){ el.hidden = true; $("#hint").hidden = mode !== "play" || !$("#modal").hidden; return; }
+  const C = curCo(); const [nm] = C.st[nearStation];
+  const isMain = !G.mainDone && curWeek().at === nearStation;
+  el.innerHTML = `${isMain ? "處理關鍵事件 · " : ""}${nm}<kbd>E</kbd>`;
+  el.hidden = false; $("#hint").hidden = true;
+}
+$("#prompt").addEventListener("click", () => nearStation && openStation(nearStation));
+
+function toast(msg, warn){
+  const t = document.createElement("div"); t.className = "toast" + (warn ? " warn" : ""); t.textContent = msg;
+  $("#toasts").appendChild(t); setTimeout(() => t.remove(), 3200);
+}
+
+/* ---------------- modal ---------------- */
+let actionOpen = false, onModalClose = null;
+function openModal(html, opts={}){
+  $("#sheet").innerHTML = html; $("#sheet").classList.toggle("wide", !!opts.wide); $("#modal").hidden = false; actionOpen = !!opts.dismissable;
+  target = null; pendingStation = null; renderPrompt();
+  const f = $("#sheet").querySelector("[data-focus]") || $("#sheet").querySelector("button"); if (f) setTimeout(() => f.focus({preventScroll:true}), 30);
+  $("#sheet").scrollTop = 0;
+}
+function closeModal(){ $("#modal").hidden = true; actionOpen = false; renderPrompt(); const cb = onModalClose; onModalClose = null; if (cb) cb(); }
+$("#modal").addEventListener("click", e => { if (e.target.id === "modal" && actionOpen) closeModal(); });
+
+function avatarFor(npc){ return npc[0].replace(/^(主管|資深架構師|架構師|總監|技師)\s*/, "").slice(0,1); }
+
+/* ---------------- stations ---------------- */
+function openStation(id){
+  if (!G || !$("#modal").hidden) return;
+  const C = curCo(), w = curWeek();
+  if (!G.mainDone && w.at === id){ openScenario(w, true); return; }
+  if (G.blocks <= 0) return;
+  if (!G.mainDone && G.blocks <= 1){ toast(`本週只剩 1 個時段，先去「${C.st[w.at][0]}」處理關鍵事件。`, true); return; }
+  const A = id === "special" ? C.special : ACTIONS[id];
+  const [nm, sub] = C.st[id];
+  const fx = Object.assign({}, A.fx);
+  if (id === "desk") fx.p = Math.round(8 + G.S.c / 15);
+  const preview = Object.keys(fx).map(k => `${STAT_LABEL[k]} ${fx[k] > 0 ? "+" : ""}${fx[k]}`).join(" · ");
+  const tired = G.S.e < 25 && fx.p > 0 ? `<div class="act-fx" style="color:var(--warn)">精力低於 25：專案進度收穫減半。</div>` : "";
+  openModal(`
+    <div class="sheet-h"><div class="avatar">${nm.slice(0,1)}</div><div class="who"><b>${nm}</b><span>${sub || "地點"}</span></div><span class="tag">耗 1 時段 · 剩 ${G.blocks}</span></div>
+    <div class="sheet-b">
+      <h2>${A.label}</h2>
+      <p class="ctx">${A.desc}</p>
+      <div class="act-fx">預期：${preview}</div>${tired}
+      <div class="actions"><button class="btn ghost" id="aCancel">離開</button><button class="btn pri" id="aGo" data-focus>${A.label}</button></div>
+    </div>`, {dismissable:true});
+  $("#aCancel").onclick = closeModal;
+  $("#aGo").onclick = () => doAction(id, fx, A.cp);
+}
+
+function doAction(id, fx, cp){
+  const C = curCo();
+  const res = apply(fx, cp);
+  G.blocks--;
+  let extra = "";
+  if (id === "manager") extra = `<p class="mgr">${pick(C.tips)}</p>`;
+  if (id === "pantry") extra = `<p class="mgr">${pick(["同事說：隔壁組的 TL 最近在找人支援，聽說很缺人。","同事說：上次校準會議，有人因為「影響講不清楚」被往下調。","同事說：主管最近很在意大家有沒有主動回報風險。","同事說：這裡真正被記住的，都是在困難時刻站出來的人。"])}</p>`;
+  const [nm] = C.st[id];
+  openModal(`
+    <div class="sheet-h"><div class="avatar">${nm.slice(0,1)}</div><div class="who"><b>${nm}</b><span>時段結束</span></div><span class="tag">剩 ${G.blocks} 時段</span></div>
+    <div class="sheet-b"><div class="deltas">${deltaChips(res)}</div>${extra}
+    <div class="actions"><button class="btn pri" id="aOk" data-focus>繼續</button></div></div>`);
+  $("#aOk").onclick = () => {
+    closeModal();
+    const chance = id === "pantry" ? .55 : id === "meeting" ? .35 : .2;
+    const pool = SIDE_EVENTS.filter(s => !G.sideUsed.includes(s.id));
+    if (checkBurnout()) return;
+    if (pool.length && Math.random() < chance && G.blocks > 0){ const s = pick(pool); G.sideUsed.push(s.id); setTimeout(() => openScenario(s, false), 250); }
+    else afterTurn();
+  };
+}
+
+/* ---------------- scenarios ---------------- */
+function openScenario(sc, isMain){
+  const ctx = typeof sc.ctx === "function" ? sc.ctx(G) : sc.ctx;
+  const order = shuffle(sc.choices.map((c,i) => i));
+  openModal(`
+    <div class="sheet-h"><div class="avatar">${avatarFor(sc.npc)}</div><div class="who"><b>${sc.npc[0]}</b><span>${sc.npc[1]}</span></div><span class="tag ${isMain ? "main" : ""}">${isMain ? "本週關鍵事件" : "突發狀況"}</span></div>
+    <div class="sheet-b">
+      <h2>${sc.title}</h2>
+      <p class="ctx">${ctx}</p>
+      <div class="choices">${order.map((ci, n) => `<button class="choice" data-i="${ci}"><span class="k">${"ABC"[n]}</span><span>${sc.choices[ci].t}</span></button>`).join("")}</div>
+    </div>`);
+  $("#sheet").querySelectorAll(".choice").forEach(b => b.onclick = () => resolveScenario(sc, isMain, +b.dataset.i));
+}
+
+function resolveScenario(sc, isMain, idx){
+  const ch = sc.choices[idx];
+  const res = apply(ch.fx, ch.cp);
+  if (isMain){ G.mainDone = true; G.blocks--; G.log.push({week:G.week, title:sc.title, r:ch.r, lesson:sc.lesson}); }
+  else G.log.push({week:G.week, title:sc.title, r:ch.r, lesson:sc.lesson, side:true});
+  if (!G.lessons.find(l => l.h === sc.lesson.h)) G.lessons.push(Object.assign({co:isMain ? curCo().name : "通用"}, sc.lesson));
+  SAVE.lessons[sc.lesson.h] = {co:isMain ? curCo().name : "通用", b:sc.lesson.b, d:sc.lesson.d}; writeSave(SAVE);
+  const others = sc.choices.filter((c,i) => i !== idx);
+  openModal(`
+    <div class="sheet-h"><div class="avatar">${avatarFor(sc.npc)}</div><div class="who"><b>${sc.npc[0]}</b><span>${sc.title}</span></div><span class="tag ${isMain ? "main" : ""}">結果</span></div>
+    <div class="sheet-b">
+      <span class="res-badge ${ch.r}">${RATE_LABEL[ch.r]}</span>
+      <div class="picked">你選擇：${ch.t}</div>
+      <p class="ctx">${ch.out}</p>
+      <div class="deltas">${deltaChips(res)}</div>
+      <div class="lesson"><div class="eb">工作手冊 · 新增一條</div><h3>${sc.lesson.h}</h3><p>${sc.lesson.b}</p><div class="drill"><b>明天就試：</b>${sc.lesson.d}</div></div>
+      <details class="alt"><summary>其他選項會怎樣？</summary><ul>${others.map(o => `<li><b class="pill ${o.r}">${RATE_LABEL[o.r]}</b> ${o.t}<br>${o.out}</li>`).join("")}</ul></details>
+      <div class="actions"><button class="btn pri" id="sOk" data-focus>繼續</button></div>
+    </div>`);
+  $("#sOk").onclick = () => { closeModal(); if (!checkBurnout()) afterTurn(); };
+}
+
+function checkBurnout(){
+  if (G.S.e > 0) return false;
+  G.burnouts++;
+  const res = apply({e:35, t:-4, p:-6}, {grit:-2});
+  const lost = (!G.mainDone ? Math.max(G.blocks - 1, 1) : Math.max(G.blocks - 1, 0));
+  const lostN = G.blocks - lost; G.blocks = lost; renderHUD();
+  openModal(`
+    <div class="sheet-h"><div class="avatar" style="background:var(--bad);color:#fff">!</div><div class="who"><b>你倦怠了</b><span>精力歸零</span></div><span class="tag">失去 ${lostN} 時段</span></div>
+    <div class="sheet-b"><h2>身體先替你做了決定</h2>
+    <p class="ctx">你請了病假。工作沒有因此停下，團隊替你補位，主管開始擔心你的狀態。</p>
+    <div class="deltas">${deltaChips(res)}</div>
+    <div class="lesson"><div class="eb">工作手冊</div><h3>精力是資源，要被管理</h3><p>大公司的工作沒有上限，你的精力有。高績效者會刻意安排恢復，把精力花在關鍵路徑上，而不是用意志力硬撐到崩潰。</p><div class="drill"><b>明天就試：</b>記錄一週精力：哪些工作讓你耗盡，哪些讓你充電？把最耗精力的事排在你狀態最好的時段。</div></div>
+    <div class="actions"><button class="btn pri" id="bOk" data-focus>繼續</button></div></div>`);
+  $("#bOk").onclick = () => { closeModal(); afterTurn(); };
+  return true;
+}
+
+function afterTurn(){
+  renderHUD();
+  if (G.blocks <= 0 && G.mainDone) setTimeout(weekEnd, 200);
+}
+
+function weekEnd(){
+  const C = curCo(), ws = G.weekStart;
+  const diff = Object.keys(G.S).map(k => ({k, d:G.S[k] - ws[k], stat:true})).filter(x => x.d);
+  const main = G.log.filter(l => !l.side && l.week === G.week)[0];
+  const fb = main ? {best:"這週的關鍵判斷很漂亮，繼續保持。", ok:"這週做得還行，但有更好的做法，看看工作手冊。", bad:"這週的關鍵事件處理得讓我有點擔心，我們下次 1:1 聊聊。"}[main.r] : "";
+  const last = G.week >= 6;
+  openModal(`
+    <div class="sheet-h"><div class="avatar">${G.week}</div><div class="who"><b>第 ${G.week} 週結束</b><span>${C.name} · ${C.role}</span></div><span class="tag">週報</span></div>
+    <div class="sheet-b">
+      <h2>${last ? "六週結束，校準會議即將開始" : "週末到了"}</h2>
+      <div class="deltas">${diff.length ? deltaChips(diff) : '<span class="d">本週各項數值持平</span>'}</div>
+      ${fb ? `<p class="mgr">${C.st.manager[0]}：「${fb}」</p>` : ""}
+      ${!last ? `<p class="ctx" style="color:var(--muted);font-size:13px">週末休息：精力 +18。</p>` : ""}
+      <div class="actions"><button class="btn pri" id="wNext" data-focus>${last ? "進入績效評核" : `開始第 ${G.week + 1} 週`}</button></div>
+    </div>`);
+  $("#wNext").onclick = () => {
+    closeModal();
+    if (last){ showReview(); return; }
+    G.week++; G.blocks = 4; G.mainDone = false;
+    G.S.e = clamp(G.S.e + 18, 0, 100);
+    G.weekStart = Object.assign({}, G.S);
+    renderHUD();
+    toast(`第 ${G.week} 週：${curWeek().title}`);
+  };
+}
+
+/* ---------------- review ---------------- */
+function showReview(){
+  const C = curCo(), S = G.S;
+  const score = Math.round(S.i*.4 + S.p*.25 + S.t*.2 + S.v*.15);
+  const tier = TIERS.findIndex(x => score >= x);
+  const [en, zh] = C.ratings[tier];
+  const prev = SAVE.best[G.cid];
+  if (prev == null || tier < prev.tier) SAVE.best[G.cid] = {tier, en, score};
+  writeSave(SAVE);
+  const mains = G.log.filter(l => !l.side);
+  const missed = mains.filter(l => l.r !== "best");
+  const drills = (missed.length ? missed : mains).slice(0,3);
+  const brk = [["影響力","i",.4],["專案進度","p",.25],["信任","t",.2],["能見度","v",.15]];
+  const bestN = mains.filter(l => l.r === "best").length;
+  openModal(`
+    <div class="sheet-h"><div class="avatar">評</div><div class="who"><b>${C.reviewName}</b><span>${C.name} · ${C.role}</span></div><span class="tag">校準結果</span></div>
+    <div class="sheet-b review">
+      <div class="rv-top"><div><div class="rv-rating">${en}</div><div class="rv-zh">${zh}</div></div><div class="rv-score num">${score}<small>綜合分數 / 100</small></div></div>
+      <p class="mgr">${TIER_LINE[tier]}</p>
+      <div class="rv-grid">
+        <div class="box"><h4>能力成長（六項職場能力）</h4><canvas id="radar" width="640" height="640"></canvas><div class="legend"><span><i style="background:#5b6470"></i>入職時</span><span><i style="background:var(--accent)"></i>現在</span></div></div>
+        <div class="box" style="display:grid;gap:14px;align-content:start">
+          <div><h4>分數怎麼算</h4><div class="stats" style="background:none;border:0;padding:0">${brk.map(([n,k,w]) => `<div class="stat"><label>${n}</label><div class="bar"><i style="width:${S[k]}%"></i></div><span class="num">${S[k]}</span></div>`).join("")}</div><div class="act-fx" style="margin-top:6px">影響力 40% · 進度 25% · 信任 20% · 能見度 15%</div></div>
+          <div><h4>六個關鍵判斷 · 最佳 ${bestN}/6</h4><div class="dec">${mains.map(l => `<div><span class="wk">W${l.week}</span><span>${l.title}</span><span class="pill ${l.r}">${RATE_LABEL[l.r]}</span></div>`).join("")}</div></div>
+        </div>
+      </div>
+      <div class="box"><h4>${missed.length ? "帶回真實工作：你失分處的練習" : "帶回真實工作：鞏固你做對的事"}</h4><ul class="drills">${drills.map(l => `<li><b>${l.lesson.h}</b>${l.lesson.d}</li>`).join("")}</ul></div>
+      <div class="actions"><button class="btn ghost" id="rBook">工作手冊（${G.lessons.length} 條）</button><button class="btn ghost" id="rSwitch">換一家公司</button><button class="btn pri" id="rAgain" data-focus>再挑戰 ${C.name}</button></div>
+    </div>`, {wide:true});
+  drawRadar();
+  $("#rAgain").onclick = () => { closeModal(); startCompany(G.cid); };
+  $("#rSwitch").onclick = () => { closeModal(); toTitle(); };
+  $("#rBook").onclick = () => showBook(showReview);
+}
+
+function drawRadar(){
+  const cv = $("#radar"); if (!cv) return; const x = cv.getContext("2d");
+  const W = cv.width, cx = W/2, cy = W/2 + 6, R = W*0.33, keysC = Object.keys(COMP_LABEL);
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#76b900";
+  x.clearRect(0,0,W,W);
+  const pt = (i, v) => { const a = -Math.PI/2 + i * Math.PI*2/6; return [cx + Math.cos(a)*R*v/100, cy + Math.sin(a)*R*v/100]; };
+  x.strokeStyle = "rgba(226,232,240,.14)"; x.lineWidth = 2;
+  [25,50,75,100].forEach(r => { x.beginPath(); keysC.forEach((k,i) => { const [px,py] = pt(i,r); i ? x.lineTo(px,py) : x.moveTo(px,py); }); x.closePath(); x.stroke(); });
+  keysC.forEach((k,i) => { const [px,py] = pt(i,100); x.beginPath(); x.moveTo(cx,cy); x.lineTo(px,py); x.stroke(); });
+  const poly = (vals, fill, stroke) => { x.beginPath(); keysC.forEach((k,i) => { const [px,py] = pt(i, vals[k]); i ? x.lineTo(px,py) : x.moveTo(px,py); }); x.closePath(); x.fillStyle = fill; x.fill(); x.strokeStyle = stroke; x.lineWidth = 4; x.stroke(); };
+  poly(G.C0, "rgba(91,100,112,.25)", "#5b6470");
+  x.globalAlpha = .28; poly(G.C, accent, accent); x.globalAlpha = 1; poly(G.C, "rgba(0,0,0,0)", accent);
+  keysC.forEach((k,i) => { const [px,py] = pt(i, G.C[k]); x.beginPath(); x.arc(px,py,7,0,Math.PI*2); x.fillStyle = accent; x.fill(); });
+  x.textAlign = "center"; x.textBaseline = "middle";
+  keysC.forEach((k,i) => {
+    const [px,py] = pt(i, 128); const d = G.C[k] - G.C0[k];
+    x.fillStyle = "#eef1f5"; x.font = "700 30px 'Noto Sans TC', sans-serif"; x.fillText(COMP_LABEL[k], px, py - 14);
+    x.fillStyle = d > 0 ? "#4cc38a" : d < 0 ? "#f06464" : "#9ba5b1"; x.font = "600 26px 'Chakra Petch', sans-serif"; x.fillText(`${G.C[k]}  (${d > 0 ? "+" : ""}${d})`, px, py + 18);
+  });
+}
+
+/* ---------------- playbook ---------------- */
+function showBook(back){
+  const entries = Object.keys(SAVE.lessons).map(h => Object.assign({h}, SAVE.lessons[h]));
+  openModal(`
+    <div class="sheet-h"><div class="avatar">冊</div><div class="who"><b>工作手冊</b><span>你在所有公司學到的原則 · ${entries.length} 條</span></div></div>
+    <div class="sheet-b">
+      ${entries.length ? `<div class="pb-list">${entries.map(l => `<div class="pb-item"><div class="co-t">${l.co}</div><h3>${l.h}</h3><p>${l.b}</p><div class="drill"><b>明天就試：</b>${l.d}</div></div>`).join("")}</div>` : `<p class="empty">還沒有內容。處理關鍵事件和突發狀況後，學到的原則會收錄在這裡，跨公司累積。</p>`}
+      <div class="actions"><button class="btn pri" id="pbClose" data-focus>關閉</button></div>
+    </div>`, {dismissable:!back});
+  $("#pbClose").onclick = () => { if (back){ $("#modal").hidden = true; back(); } else closeModal(); };
+}
+$("#btnBook").onclick = () => { if ($("#modal").hidden) showBook(null); };
+$("#btnQuit").onclick = () => {
+  if (!$("#modal").hidden) return;
+  openModal(`<div class="sheet-b" style="padding-top:22px"><h2>離開 ${curCo().name}？</h2><p class="ctx">目前進度不會保留，工作手冊會保留。</p><div class="actions"><button class="btn ghost" id="qNo" data-focus>繼續工作</button><button class="btn pri" id="qYes">回到選公司</button></div></div>`, {dismissable:true});
+  $("#qNo").onclick = closeModal; $("#qYes").onclick = () => { closeModal(); toTitle(); };
+};
+
+/* ---------------- title / flow ---------------- */
+function setAccent(cid){
+  const C = COMPANIES[cid];
+  document.documentElement.style.setProperty("--accent", C.accent);
+  document.documentElement.style.setProperty("--accent-ink", C.ink);
+}
+function renderCards(){
+  $("#coCards").innerHTML = Object.keys(COMPANIES).map(cid => {
+    const C = COMPANIES[cid], b = SAVE.best[cid];
+    return `<button class="co" data-cid="${cid}" style="--c:${C.accent}">
+      <span class="nm">${C.name}</span>
+      <span class="rl">${C.role}</span>
+      <ul>${C.culture.map(c => `<li>${c.split("：")[0]}</li>`).join("")}</ul>
+      <span class="meta"><span>${C.diff}</span><span>${b ? `最佳 <b>${b.en}</b>` : "尚未挑戰"}</span></span>
+    </button>`;
+  }).join("");
+  $("#coCards").querySelectorAll(".co").forEach(el => {
+    const cid = el.dataset.cid;
+    el.addEventListener("mouseenter", () => preview(cid));
+    el.addEventListener("focus", () => preview(cid));
+    el.addEventListener("click", () => startCompany(cid));
+  });
+}
+let previewCid = null;
+function preview(cid){ if (mode !== "title" || previewCid === cid) return; previewCid = cid; setAccent(cid); buildWorld(cid); }
+
+function toTitle(){
+  mode = "title"; G = null; nearStation = null;
+  ["#hudTL","#hudTR","#prompt","#hint"].forEach(s => $(s).hidden = true);
+  $("#title").hidden = false; renderCards();
+  previewCid = null; preview("nvidia");
+}
+
+function startCompany(cid){
+  const C = COMPANIES[cid];
+  setAccent(cid); previewCid = cid; buildWorld(cid);
+  newGame(cid); mode = "play";
+  $("#title").hidden = true;
+  camPos.set(player.position.x * .85, 16.5, player.position.z * .85 + 14.5); camLook.set(player.position.x, .8, player.position.z - 1.2);
+  ["#hudTL","#hudTR"].forEach(s => $(s).hidden = false);
+  renderHUD();
+  openModal(`
+    <div class="sheet-h"><div class="avatar">${C.name.slice(0,1)}</div><div class="who"><b>歡迎加入 ${C.name}</b><span>${C.role} · ${C.level}</span></div><span class="tag">報到日</span></div>
+    <div class="sheet-b">
+      <h2>${C.goal}</h2>
+      <p class="ctx">公司使命：${C.mission}</p>
+      <div class="lesson"><div class="eb">你會被這樣要求</div><ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:4px">${C.culture.map(c => `<li>${c}</li>`).join("")}</ul></div>
+      <p class="ctx" style="font-size:14px;color:var(--muted)">每週有 4 個時段，其中一個必須用在頭上有 <b style="color:var(--gold)">!</b> 的關鍵事件。剩下的時間，你決定要深度工作、經營關係、讓工作被看見，還是休息。六週後進入${C.reviewName}。</p>
+      <div class="actions"><button class="btn pri" id="go" data-focus>開始第 1 週</button></div>
+    </div>`);
+  $("#go").onclick = () => { closeModal(); toast(`第 1 週：${curWeek().title}`); };
+}
+
+resize();
+toTitle();
+tick();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (mode === "title"){ const c = previewCid || "nvidia"; previewCid = null; preview(c); } });
+})();
+</script>
+</body></html>
